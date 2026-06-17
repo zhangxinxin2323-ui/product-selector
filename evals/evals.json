@@ -1,0 +1,23 @@
+{
+  "skill_name": "product-selector",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "帮我分析 B0CVM8TXHP 这个产品，看看能不能做精铺",
+      "expected_output": "完整走 Step 1-2：产品详情写入初选表，关键词+类目+评论分析写入AI分析参考表，输出综合评分和建议",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "nail drill 这个品类值得做吗？帮我看看市场情况",
+      "expected_output": "从关键词出发搜索 Top 产品，选 1-2 个 ASIN 分析，输出品类机会报告写入初选+AI分析参考",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "产品初选表里待分析的都帮我跑一遍 AI 分析",
+      "expected_output": "遍历待分析记录，批量执行 Step 1-2，输出汇总表",
+      "files": []
+    }
+  ]
+}

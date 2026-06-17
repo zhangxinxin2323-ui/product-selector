@@ -1,0 +1,14 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Temporary output
+/tmp/
+*.tmp
+
+# Report output (user data, not skill code)
+product-selector-reports/
