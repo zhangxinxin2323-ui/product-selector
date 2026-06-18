@@ -180,24 +180,44 @@ python scripts/report_lint.py <run-dir>/full-report.md
 4. 并行不超过配置值。
 5. 汇总成功、失败、跳过、API 消耗和待人工输入。
 
-## 完成检查
+## 完成检查 (⛔ 16项对照表，必须在对话末尾输出)
 
-结束前逐项核对：
+> 逐项核对，靠检查表不靠记忆。缺项立即补做。No-GO跳过是正确的，但要注明。
 
-- 原始响应和 `evidence-index.json` 已保存。
-- 三个关键词维度或缺失原因已记录。
-- 维度文件为 confirmed；否则报告明确写“属性维度待确认”。
-- 空白组合没有被直接称为蓝海。
-- Market、Financial Decision 与 Launch Feasibility 已分开。
-- 无成本时已经输出反向成本上限。
-- 寻源门槛使用总落地成本上限；没有可靠头程时未把总上限误写成采购价上限。
-- 正向模型记录模型版本、输入哈希、假设和证据来源。
-- 峰值资金需求没有被写成最大损失；仅在提供库存残值率后输出损失估算。
-- 专利、合规、产品安全、供应链状态已列出。
-- 所有估算都有假设和置信度。
-- dry-run/live 状态清晰；live 写入已 upsert 并回读。
-- `python scripts/run_evals.py` 已通过；正式发布前 `--require-live` 也必须通过。
-- 报告 lint 通过；失败项已显式汇报。
+```
+═══════════════════════════════════════════
+  ⛔ 任务完成检查
+═══════════════════════════════════════════
+
+P1 决策:
+  [ ] Market Decision
+  [ ] Financial Decision（PENDING时附反向成本上限）
+  [ ] Launch Feasibility（PENDING时附缺什么）
+  [ ] hard gates 全有状态
+
+P2 飞书写入:
+  [ ] candidate
+  [ ] ai_market_analysis（结构化+文本+反向财务字段）
+  [ ] screening→GO/COND才写
+  [ ] finance→仅Financial GO时写
+  [ ] 每条写入已回读验证
+
+P3 报告:
+  [ ] decision-card.html
+  [ ] full-report.md
+  [ ] report_lint.py → valid: true
+
+P4 证据:
+  [ ] 原始响应已保存 raw/
+  [ ] 缺失维度显式列出
+  [ ] 估算标注置信度
+  [ ] SearchConversionRate未写成点击CVR
+═══════════════════════════════════════════
+  通过: X/16  待补: Y
+═══════════════════════════════════════════
+```
+
+**⛔ 此检查必须出现在分析对话末尾。不允许浓缩为”全部通过”。**
 
 ## 参考索引
 
