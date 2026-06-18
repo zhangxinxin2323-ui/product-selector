@@ -254,7 +254,7 @@ P2 飞书写入:
 P3 报告:
   [ ] decision-card.html
   [ ] full-report.md
-  [ ] **python scripts/validate_run.py --run-dir <report-dir> --overall-decision <OD> --financial-decision <FD> → exit 0 (⛔ 失败必须修)**
+  [ ] **python scripts/check_report.py --run-dir <report-dir> --overall-decision <OD> --financial-decision <FD> → exit 0 (⛔ 失败必须修)**
 
 P4 证据:
   [ ] 原始响应已保存 raw/

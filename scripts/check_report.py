@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-validate_run.py — post-analysis quality gate. Run after every analysis.
-Checks: report completeness, Feishu table coverage, evidence preservation.
+check_report.py — 报告质量门禁。每次分析后运行。
+检查: 报告完整性、飞书表覆盖、证据保存。
 
-Usage: python scripts/validate_run.py --run-dir <report-dir> --feishu-token <token>
+用法: python scripts/check_report.py --run-dir <report-dir>
 
 Returns exit code 0 only when ALL gates pass.
 Claude MUST fix all failures before responding to the user.
