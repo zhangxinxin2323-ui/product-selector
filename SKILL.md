@@ -28,6 +28,18 @@ description: >
 9. **⛔ 飞书百分比字段统一用 0-1 小数（0.352 = 35.2%）。** 包括：搜索转化率、CVR、ClickShare、集中度、FBA占比、自营占比、新品占比、佣金率、回款率、净利率、广告空间、广告占比、退货率、ACOS参考值。CPC/售价/FBA费/利润/成本/搜索量等金额和计数类保持原值。
 10. **⛔ 父 ASIN 检测**：ProductRequest 返回的 FBAFee ≤ 0 或 Price ≤ 0 或 IsFBA = false → 该 ASIN 是变体父体或非 FBA 商品。不得使用 $0 FBA 费做财务测算。从 CategoryRequest 的同价格段 FBA 产品估算 FBA 费，并标注"FBA 为估算值(父ASIN)"。估算规则：用类目中同价格段(±30%)的 FBA 产品 FBA 费中位数。
 11. **⛔ 退货率按品类默认值**，不得一律用 5%。品类映射：Clothing/Shoes/Jewelry→15%，Electronics→5%，Home/Kitchen/Furniture→8%，Pet Supplies→8%，Sports/Outdoors→7%，Tools→5%，Office→5%，其他→5%。用户提供实际退货率时以用户为准。
+12. **⛔ 财务测算的五个运营参数取值规则**：
+
+| 参数 | 默认值 | 来源 | 可否不填 |
+|------|-------|------|:--:|
+| 1688采购价 | 无默认 | **用户必须提供** | ❌ |
+| 头程运费 | 无默认 | **用户必须提供** | ❌ |
+| CPC | 核心词CPC（市场参考值） | KeywordRequest.Cpc | ✅ 可不填，用市场CPC |
+| CVR（点击转化率） | 无默认 | **Sorftime不提供** | ❌ 必须用户填 |
+| 退货率 | 按品类默认 | 规则11 | ✅ 可不填，用品类默认 |
+| 广告订单占比 | 50% | 精铺默认 | ✅ 可不填，用默认值 |
+
+**逻辑**：采购价和头程无法从任何数据源推导——缺则反向财务只输出成本上限。CPC可从市场数据取，CVR 必须人工填因为 Sorftime 的 SearchConversionRate≠点击CVR。退货率按规则11。
 
 ## 启动检查
 
