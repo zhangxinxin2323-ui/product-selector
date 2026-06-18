@@ -28,7 +28,7 @@
     "target_m": 2.0,
     "target_net_margin": 0.15,
     "default_return_rate": 0.05,
-    "default_ad_order_share": 0.6,
+    "default_ad_order_share": 0.5,
     "fallback_ad_rate": 0.15,
     "scenario_profile": "moderate",
     "available_capital": null,

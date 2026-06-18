@@ -3,38 +3,41 @@
   "schema_version": 3,
   "live_fixture_policy": {
     "minimum_fixtures": 2,
-    "required_endpoints": ["ProductRequest", "CategoryRequest"],
+    "required_endpoints": [
+      "ProductRequest",
+      "CategoryRequest"
+    ],
     "capture_rule": "Capture with scripts/sorftime_call.py, redact credentials and personal data, then record endpoint, domain, captured_at and SHA-256."
   },
   "fixture_catalog": [
     {
       "path": "fixtures/category-request-payload.json",
       "provenance": "synthetic",
-      "sha256": "ec2a207e3731f42fee5c2273793d82d3329d51174769003b247ad4e77dccb15b",
+      "sha256": "2ada3c2d29cedd20d3c87ea5172f00072ec9b24aace122d71431594d7c3341d3",
       "purpose": "Budget and wrapper request fixture"
     },
     {
       "path": "fixtures/expected-report.md",
       "provenance": "synthetic",
-      "sha256": "c782b6125c484b44291d389316a39b122b761d4a6d98946dc82a12340d565b06",
+      "sha256": "20678b1501fac0f9d992408768f1f7b9441049873f8609b2391108896e1a1ace",
       "purpose": "Report contract fixture"
     },
     {
       "path": "fixtures/sample-electronics-category.json",
       "provenance": "synthetic",
-      "sha256": "fb1143a30aae7b7591639167cbfd98548712feb98be8cd888f88444a2dea7010",
+      "sha256": "b64bc625f81ee26121d020f89e60576c525411901348e63b9e54e697c21a00bb",
       "purpose": "Attribute and cross-analysis fixture"
     },
     {
       "path": "fixtures/sample-product-request.json",
       "provenance": "synthetic",
-      "sha256": "bf8ea60ceaeaba0013a339d2817961645f9b6d3b3234e4bb0ba64b4b5c5c2ec6",
+      "sha256": "6a1178bf6efbf21a82c0391d48d31e585d90f61a5d29c63f6c55d34c464c5fd8",
       "purpose": "Monitoring payload fixture"
     },
     {
       "path": "fixtures/sample-reviews.json",
       "provenance": "synthetic",
-      "sha256": "3ed578d48c068123de2c7b9ecc9c2d6807fc0dc7c90f81f88c3f24020cdaf3db",
+      "sha256": "0c216e24e3a00e84a7fb8341ed952abca22988af35da2b611f3aaba9038ae33e",
       "purpose": "VOC bundle fixture"
     }
   ],
@@ -79,7 +82,9 @@
     {
       "id": "unknown-category-dimensions",
       "prompt": "用 fixture 分析这个未配置品类的属性结构。",
-      "files": ["fixtures/sample-electronics-category.json"],
+      "files": [
+        "fixtures/sample-electronics-category.json"
+      ],
       "expected_checks": [
         "dimension-draft.json is produced",
         "requires_dimension_confirmation is true",
@@ -89,7 +94,9 @@
     {
       "id": "fixture-report-lint",
       "prompt": "校验 fixture 报告是否满足正式交付标准。",
-      "files": ["fixtures/expected-report.md"],
+      "files": [
+        "fixtures/expected-report.md"
+      ],
       "expected_checks": [
         "all required sections are present",
         "at least three Sorftime source types are cited",
