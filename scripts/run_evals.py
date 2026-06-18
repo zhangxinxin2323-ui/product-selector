@@ -23,8 +23,10 @@ SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
 def file_hash(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(65536), b""):
-            digest.update(block)
+        raw = handle.read()
+    # Normalize line endings to LF for cross-platform consistency
+    normalized = raw.replace(b"\r\n", b"\n")
+    digest.update(normalized)
     return digest.hexdigest()
 
 
