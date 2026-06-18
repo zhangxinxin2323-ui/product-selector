@@ -88,16 +88,18 @@ def score_sales_growth(yoy_pct):
     if yoy_pct > -0.05: return 5
     return 3
 
-def score_brand_cr3(cr3):
-    """22-dimension threshold: CR3 brand SKU share → 1-10. Lower = more fragmented."""
-    if cr3 is None: return 5
-    if cr3 < 0.30: return 9
-    if cr3 < 0.50: return 7
-    if cr3 < 0.70: return 5
-    return 3
+def score_brand_saturation(top3_sku_share):
+    """Top3 brand SKU share of Top100 (not market share—that's ClickShare).
+    High = fewer brands dominate shelf = harder for new entrants. Lower is better."""
+    if top3_sku_share is None: return 5
+    if top3_sku_share < 0.15: return 10
+    if top3_sku_share < 0.30: return 8
+    if top3_sku_share < 0.45: return 6
+    if top3_sku_share < 0.60: return 4
+    return 2
 
 def score_brand_count(bc):
-    """ZPR threshold: >80 brands = ideal. Supplemental to CR3."""
+    """ZPR threshold: >80 brands in Top100 = ideal. More brands = easier entry."""
     if bc is None: return 5
     if bc >= 80: return 10
     if bc >= 50: return 7
@@ -106,33 +108,38 @@ def score_brand_count(bc):
 
 def compute_market_decision(search_volume, click_share_pct, new_product_rate,
                              avg_reviews, cpc, search_cvr,
-                             brand_count=None, cr3_brand_pct=None,
+                             brand_count=None, top3_sku_share=None,
                              sales_yoy_pct=None):
     """
     Deterministic Market Decision from CLI raw data.
     All thresholds from 22-dimension decision-thresholds.md and ZPR.
-    Returns (weighted_score, decision, dimension_scores_dict).
+
+    True CR3 (market concentration) = ClickShare (already in score_click_share).
+    top3_sku_share is NOT CR3 — it's brand shelf saturation (complementary signal).
     """
     ms = score_market_size(search_volume)
     gs = score_sales_growth(sales_yoy_pct)
-    cs = score_click_share(click_share_pct)
-    cr = score_brand_cr3(cr3_brand_pct)
+    cs = score_click_share(click_share_pct)          # ← true CR3
+    bs = score_brand_saturation(top3_sku_share)      # ← shelf share, not market share
     bc = score_brand_count(brand_count)
     np = score_new_product_rate(new_product_rate)
     rv = score_review_barrier(avg_reviews)
     cp = score_cpc(cpc)
     cv = score_search_cvr(search_cvr)
 
-    # Market size enriched by sales growth (22-dimension A1+A2)
+    # Market size: 60% raw volume + 40% growth trend
     market_size_effective = round(ms * 0.6 + gs * 0.4, 1)
 
-    # Competition: ClickShare 35% + CR3 25% + entry difficulty 40%
+    # Competition: brand landscape vs. how hard it actually is to enter
+    brand_landscape = round(cs * 0.55 + bc * 0.25 + bs * 0.20, 1)
     entry_difficulty = round(np * 0.5 + rv * 0.5, 1)
-    brand_competition = round(cs * 0.5 + cr * 0.3 + bc * 0.2, 1)
-    competition = round(brand_competition * 0.5 + entry_difficulty * 0.35 + score_cpc(cpc) * 0.15, 1)
+    competition = round(brand_landscape * 0.40 + entry_difficulty * 0.60, 1)
+    # ↑ entry_difficulty heavier (60%) — fragmented brands don't help
+    #   if new product survival rate is terrible (1965 reviews, 5% new)
 
-    # Barrier: new product rate + reviews + CPC accessibility
-    barrier = round(np * 0.35 + rv * 0.35 + cp * 0.3, 1)
+    # Barrier: new product rate is the strongest signal (can you even enter this market?),
+    # reviews are the second gate (how long to build parity)
+    barrier = round(np * 0.40 + rv * 0.40 + cp * 0.20, 1)
 
     weighted = round(
         MARKET_WEIGHTS["market_size"] * market_size_effective +
@@ -146,10 +153,10 @@ def compute_market_decision(search_volume, click_share_pct, new_product_rate,
         "market_size": (market_size_effective,
             f"SV={search_volume}(base={ms}) + YoY={sales_yoy_pct}(growth={gs})"),
         "competition": (competition,
-            f"ClickShare={click_share_pct}({cs}) CR3={cr3_brand_pct}({cr}) Brands={brand_count}({bc}) NewProd={new_product_rate}({np}) Reviews={avg_reviews}({rv}) CPC={cpc}({cp})"),
+            f"ClickShare={click_share_pct}({cs}) Brands={brand_count}({bc}) Top3SKU={top3_sku_share}({bs}) Entry:NewProd={new_product_rate}({np})+Reviews={avg_reviews}({rv})"),
         "demand_clarity": (cv, f"SearchCVR={search_cvr}"),
         "barrier": (barrier,
-            f"NewProd={new_product_rate}({np}) Reviews={avg_reviews}({rv}) CPC={cpc}({cp})"),
+            f"Reviews={avg_reviews}({rv}) NewProd={new_product_rate}({np}) CPC={cpc}({cp})"),
     }
 
 def score_decision(score: float) -> str:
