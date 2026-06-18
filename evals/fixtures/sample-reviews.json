@@ -1,0 +1,26 @@
+{
+  "_fixture": {
+    "type": "synthetic",
+    "purpose": "review bundle normalization"
+  },
+  "Data": {
+    "Reviews": [
+      {
+        "ReviewId": "R1",
+        "Asin": "TEST000001",
+        "Star": 2,
+        "Title": "Gets too hot",
+        "Content": "The charger becomes hot after thirty minutes.",
+        "Date": "2026-01-10"
+      },
+      {
+        "ReviewId": "R2",
+        "Asin": "TEST000001",
+        "Star": 5,
+        "Title": "Compact",
+        "Content": "Small size and the port feels sturdy.",
+        "Date": "2026-01-11"
+      }
+    ]
+  }
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Product Selector"
+  short_description: "Amazon market, VOC, finance, and sourcing decisions"
+  default_prompt: "Use $product-selector to assess this Amazon product with a dry-run evidence-backed market and financial decision."

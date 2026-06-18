@@ -12,3 +12,8 @@ __pycache__/
 
 # Report output (user data, not skill code)
 product-selector-reports/
+outputs/
+runtime/
+
+# Local configuration may contain private tokens and table ids
+config.local.json

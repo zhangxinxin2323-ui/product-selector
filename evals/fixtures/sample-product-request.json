@@ -1,0 +1,15 @@
+{
+  "_fixture": {
+    "type": "synthetic",
+    "purpose": "monitoring payload tests",
+    "price_unit": "cents"
+  },
+  "Code": 0,
+  "Data": {
+    "Asin": "TEST000001",
+    "Price": 3999,
+    "BsrRank": 12345,
+    "Ratings": 4.5,
+    "RatingsCount": 320
+  }
+}

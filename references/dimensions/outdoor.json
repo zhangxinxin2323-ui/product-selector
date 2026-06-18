@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "status": "confirmed",
+  "name": "outdoor",
+  "dimensions": {
+    "weather_protection": {
+      "values": [
+        {"name": "water resistant", "patterns": ["water resistant", "water-resistant"]},
+        {"name": "waterproof", "patterns": ["waterproof", "water proof"]},
+        {"name": "uv resistant", "patterns": ["uv resistant", "uv-resistant", "sun resistant"]},
+        {"name": "wind resistant", "patterns": ["wind resistant", "windproof", "wind proof"]}
+      ]
+    },
+    "mount_type": {
+      "values": [
+        {"name": "ground", "patterns": ["ground", "stake", "stakes"]},
+        {"name": "wall", "patterns": ["wall mount", "wall-mounted"]},
+        {"name": "pole", "patterns": ["pole mount", "pole-mounted"]},
+        {"name": "clamp", "patterns": ["clamp", "clamping"]},
+        {"name": "freestanding", "patterns": ["freestanding", "free standing", "tripod"]}
+      ]
+    },
+    "portability": {
+      "values": [
+        {"name": "foldable", "patterns": ["foldable", "folding", "collapsible"]},
+        {"name": "portable", "patterns": ["portable", "carry bag", "carrying bag"]},
+        {"name": "fixed", "patterns": ["permanent", "fixed installation", "stationary"]}
+      ]
+    },
+    "frame_material": {
+      "values": [
+        {"name": "steel", "patterns": ["steel", "iron"]},
+        {"name": "aluminum", "patterns": ["aluminum", "aluminium"]},
+        {"name": "fiberglass", "patterns": ["fiberglass", "glass fiber"]},
+        {"name": "plastic", "patterns": ["plastic", "abs"]}
+      ]
+    }
+  },
+  "cross_pairs": [
+    ["weather_protection", "mount_type"],
+    ["portability", "frame_material"],
+    ["mount_type", "portability"]
+  ]
+}

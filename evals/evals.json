@@ -1,23 +1,101 @@
 {
   "skill_name": "product-selector",
+  "schema_version": 3,
+  "live_fixture_policy": {
+    "minimum_fixtures": 2,
+    "required_endpoints": ["ProductRequest", "CategoryRequest"],
+    "capture_rule": "Capture with scripts/sorftime_call.py, redact credentials and personal data, then record endpoint, domain, captured_at and SHA-256."
+  },
+  "fixture_catalog": [
+    {
+      "path": "fixtures/category-request-payload.json",
+      "provenance": "synthetic",
+      "sha256": "ec2a207e3731f42fee5c2273793d82d3329d51174769003b247ad4e77dccb15b",
+      "purpose": "Budget and wrapper request fixture"
+    },
+    {
+      "path": "fixtures/expected-report.md",
+      "provenance": "synthetic",
+      "sha256": "c782b6125c484b44291d389316a39b122b761d4a6d98946dc82a12340d565b06",
+      "purpose": "Report contract fixture"
+    },
+    {
+      "path": "fixtures/sample-electronics-category.json",
+      "provenance": "synthetic",
+      "sha256": "fb1143a30aae7b7591639167cbfd98548712feb98be8cd888f88444a2dea7010",
+      "purpose": "Attribute and cross-analysis fixture"
+    },
+    {
+      "path": "fixtures/sample-product-request.json",
+      "provenance": "synthetic",
+      "sha256": "bf8ea60ceaeaba0013a339d2817961645f9b6d3b3234e4bb0ba64b4b5c5c2ec6",
+      "purpose": "Monitoring payload fixture"
+    },
+    {
+      "path": "fixtures/sample-reviews.json",
+      "provenance": "synthetic",
+      "sha256": "3ed578d48c068123de2c7b9ecc9c2d6807fc0dc7c90f81f88c3f24020cdaf3db",
+      "purpose": "VOC bundle fixture"
+    }
+  ],
   "evals": [
     {
-      "id": 1,
-      "prompt": "帮我分析 B0CVM8TXHP 这个产品，看看能不能做精铺",
-      "expected_output": "完整走 Step 1-2：产品详情写入初选表，关键词+类目+评论分析写入AI分析参考表，输出综合评分和建议",
-      "files": []
+      "id": "asin-full-dry-run",
+      "prompt": "帮我分析 B0CVM8TXHP，先不要写飞书，给出市场和财务两层判断。",
+      "mode": "full",
+      "write_mode": "dry-run",
+      "expected_checks": [
+        "Market Decision and Financial Decision are separate",
+        "missing cost triggers reverse finance instead of skipping finance",
+        "no live Feishu mutation",
+        "every numeric claim has a source or assumption label"
+      ],
+      "expected_api_budget_max": 60
     },
     {
-      "id": 2,
-      "prompt": "nail drill 这个品类值得做吗？帮我看看市场情况",
-      "expected_output": "从关键词出发搜索 Top 产品，选 1-2 个 ASIN 分析，输出品类机会报告写入初选+AI分析参考",
-      "files": []
+      "id": "keyword-quick",
+      "prompt": "nail drill 这个品类值得做吗？控制在 25 积分以内。",
+      "mode": "quick",
+      "write_mode": "dry-run",
+      "expected_checks": [
+        "three keyword dimensions or an explicit missing-data reason",
+        "API plan does not exceed 25",
+        "blank supply is not called blue ocean without demand evidence"
+      ],
+      "expected_api_budget_max": 25
     },
     {
-      "id": 3,
-      "prompt": "产品初选表里待分析的都帮我跑一遍 AI 分析",
-      "expected_output": "遍历待分析记录，批量执行 Step 1-2，输出汇总表",
-      "files": []
+      "id": "batch-plan-only",
+      "prompt": "产品初选表里待分析的先给我批量计划，不要开始写。",
+      "mode": "batch",
+      "write_mode": "dry-run",
+      "expected_checks": [
+        "deduplicated analysis keys",
+        "item count and estimated API cost",
+        "parallelism no greater than configured maximum",
+        "no live write"
+      ]
+    },
+    {
+      "id": "unknown-category-dimensions",
+      "prompt": "用 fixture 分析这个未配置品类的属性结构。",
+      "files": ["fixtures/sample-electronics-category.json"],
+      "expected_checks": [
+        "dimension-draft.json is produced",
+        "requires_dimension_confirmation is true",
+        "draft dimensions are not used as final opportunity evidence"
+      ]
+    },
+    {
+      "id": "fixture-report-lint",
+      "prompt": "校验 fixture 报告是否满足正式交付标准。",
+      "files": ["fixtures/expected-report.md"],
+      "expected_checks": [
+        "all required sections are present",
+        "at least three Sorftime source types are cited",
+        "market and finance decisions are separated",
+        "no unresolved placeholder remains"
+      ]
     }
   ]
 }

@@ -1,0 +1,42 @@
+{
+  "schema_version": "financial-model/v1",
+  "operation": "scenario",
+  "request_id": "1:asin:TEST000001",
+  "scenario_profile": "moderate",
+  "inputs": {
+    "price": 39.99,
+    "commissionRate": 15,
+    "fbaFee": 8.2,
+    "productCost": 7.5,
+    "shippingCost": 4.0,
+    "cpc": 0.8,
+    "cvr": 8.0,
+    "adRatio": 60,
+    "returnRate": 5,
+    "storageFee": 0.1,
+    "launchFixedCost": 1000,
+    "monthlyFixedCost": 100
+  },
+  "logistics": {
+    "moq": 500,
+    "productionCycle": 30,
+    "shippingCycle": 30,
+    "safetyDays": 15,
+    "batchCoverDays": 60,
+    "targetDailySales": 20,
+    "numMonths": 12
+  },
+  "constraints": {
+    "availableCapital": 25000,
+    "maxPaybackMonths": 12,
+    "inventorySalvageRatePct": 20
+  },
+  "provenance": {
+    "price": {"status": "measured", "evidence_id": "ev-product-001"},
+    "fbaFee": {"status": "measured", "evidence_id": "ev-product-001"},
+    "cpc": {"status": "measured", "evidence_id": "ev-keyword-001"},
+    "cvr": {"status": "user_provided", "evidence_id": "ev-ad-console-001"},
+    "productCost": {"status": "user_provided", "evidence_id": "ev-supplier-001"},
+    "shippingCost": {"status": "estimated", "evidence_id": "ev-freight-001"}
+  }
+}

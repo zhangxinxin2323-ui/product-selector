@@ -1,0 +1,99 @@
+{
+  "_fixture": {
+    "type": "synthetic",
+    "purpose": "deterministic tests only",
+    "price_unit": "cents"
+  },
+  "Data": {
+    "Products": [
+      {
+        "Asin": "TEST000001",
+        "Title": "USB-C 20W Single Port Metal Charger Black",
+        "Brand": "Alpha",
+        "Price": 1999,
+        "SalesVolumeOfMonth": 1000,
+        "RatingsCount": 320,
+        "Ratings": 4.5,
+        "OnlineDays": 80,
+        "IsFBA": true
+      },
+      {
+        "Asin": "TEST000002",
+        "Title": "USB C 20W Dual Port Plastic Charger White",
+        "Brand": "Beta",
+        "Price": 2299,
+        "SalesVolumeOfMonth": 800,
+        "RatingsCount": 220,
+        "Ratings": 4.4,
+        "OnlineDays": 150,
+        "IsFBA": true
+      },
+      {
+        "Asin": "TEST000003",
+        "Title": "USB-C 65W 2-Port GaN Metal Charger Black",
+        "Brand": "Alpha",
+        "Price": 3999,
+        "SalesVolumeOfMonth": 600,
+        "RatingsCount": 480,
+        "Ratings": 4.6,
+        "OnlineDays": 400,
+        "IsFBA": true
+      },
+      {
+        "Asin": "TEST000004",
+        "Title": "USB-A 20W Dual Port Plastic Wall Charger White",
+        "Brand": "Gamma",
+        "Price": 1599,
+        "SalesVolumeOfMonth": 350,
+        "RatingsCount": 90,
+        "Ratings": 4.2,
+        "OnlineDays": 60,
+        "IsFBA": "false"
+      },
+      {
+        "Asin": "TEST000005",
+        "Title": "Lightning 20W Single Port Plastic Charger Black",
+        "Brand": "Delta",
+        "Price": 1899,
+        "SalesVolumeOfMonth": 260,
+        "RatingsCount": 75,
+        "Ratings": 4.1,
+        "OnlineDays": 120,
+        "IsFBA": true
+      },
+      {
+        "Asin": "TEST000006",
+        "Title": "USB-C 100W 3 Port Power Delivery Aluminum Charger",
+        "Brand": "Epsilon",
+        "Price": 5999,
+        "SalesVolumeOfMonth": 220,
+        "RatingsCount": 140,
+        "Ratings": 4.3,
+        "OnlineDays": 240,
+        "IsFBA": true
+      },
+      {
+        "Asin": "TEST000007",
+        "Title": "HDMI Adapter with USB C Lighting Input Indicator",
+        "Brand": "Zeta",
+        "Price": 2599,
+        "SalesVolumeOfMonth": 120,
+        "RatingsCount": 35,
+        "Ratings": 4.0,
+        "OnlineDays": 40,
+        "IsFBA": false
+      },
+      {
+        "Asin": "TEST000008",
+        "Title": "USB-C 65W 4 Port GaN Charging Station",
+        "Brand": "Eta",
+        "Price": 4999,
+        "SalesVolumeOfMonth": 180,
+        "RatingsCount": 110,
+        "Ratings": 4.4,
+        "OnlineDays": 300,
+        "IsFBA": true
+      }
+    ]
+  }
+}

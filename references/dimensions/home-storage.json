@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "status": "confirmed",
+  "name": "home-storage",
+  "dimensions": {
+    "material": {
+      "values": [
+        {"name": "metal", "patterns": ["metal", "steel", "iron", "aluminum"]},
+        {"name": "solid wood", "patterns": ["solid wood", "bamboo"]},
+        {"name": "engineered wood", "patterns": ["mdf", "particle board", "engineered wood"]},
+        {"name": "plastic", "patterns": ["plastic", "abs"]}
+      ]
+    },
+    "mobility": {
+      "values": [
+        {"name": "rolling", "patterns": ["rolling", "caster", "casters", "wheels"]},
+        {"name": "stationary", "patterns": ["stationary", "fixed feet", "leveling feet"]},
+        {"name": "foldable", "patterns": ["foldable", "folding"]}
+      ]
+    },
+    "storage_form": {
+      "values": [
+        {"name": "open shelf", "patterns": ["open shelf", "open shelves", "shelving"]},
+        {"name": "drawer", "patterns": ["drawer", "drawers"]},
+        {"name": "cabinet", "patterns": ["cabinet", "door storage"]},
+        {"name": "basket", "patterns": ["basket", "wire basket", "bin"]}
+      ]
+    },
+    "tier_count": {
+      "values": [
+        {"name": "2 tier", "patterns": ["2 tier", "2-tier", "two tier"]},
+        {"name": "3 tier", "patterns": ["3 tier", "3-tier", "three tier"]},
+        {"name": "4 tier", "patterns": ["4 tier", "4-tier", "four tier"]},
+        {"name": "5+ tier", "patterns": ["5 tier", "5-tier", "6 tier", "6-tier"]}
+      ]
+    }
+  },
+  "cross_pairs": [
+    ["material", "mobility"],
+    ["storage_form", "tier_count"],
+    ["material", "storage_form"]
+  ]
+}

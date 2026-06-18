@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "site": {
+    "domain": 1,
+    "label": "US"
+  },
+  "execution": {
+    "analysis_mode": "full",
+    "write_mode": "dry-run",
+    "api_budget": 60,
+    "max_parallel": 3,
+    "output_dir": "./outputs"
+  },
+  "feishu": {
+    "adapter": "auto",
+    "base_token_env": "PRODUCT_SELECTOR_BASE_TOKEN",
+    "tables": {
+      "product_candidates": "<table-id>",
+      "ai_market_analysis": "<table-id>",
+      "product_screening": "<table-id>",
+      "finance": "<table-id>",
+      "product_development": "<table-id>",
+      "suppliers": "<table-id>"
+    }
+  },
+  "finance": {
+    "engine": "bundled-js",
+    "target_m": 2.0,
+    "target_net_margin": 0.15,
+    "default_return_rate": 0.05,
+    "default_ad_order_share": 0.6,
+    "fallback_ad_rate": 0.15,
+    "scenario_profile": "moderate",
+    "available_capital": null,
+    "max_payback_months": 12,
+    "inventory_salvage_rate": null,
+    "feishu_percent_scale": "fraction"
+  },
+  "integrations": {
+    "review_insight": {
+      "enabled": false,
+      "mode": "deep-voc",
+      "skill_path": ""
+    },
+    "monitoring": {
+      "enabled": false,
+      "table_id_env": "PRODUCT_MONITOR_TABLE_ID",
+      "write_mode": "dry-run"
+    },
+    "cross_market_scan": {
+      "enabled": false,
+      "domains": [2, 3, 7],
+      "api_budget": 30
+    }
+  }
+}

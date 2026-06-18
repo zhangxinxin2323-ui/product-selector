@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "status": "confirmed",
+  "name": "electronics-accessories",
+  "dimensions": {
+    "connector": {
+      "values": [
+        {"name": "usb-c", "patterns": ["usb c", "usb-c", "type c", "type-c"]},
+        {"name": "usb-a", "patterns": ["usb a", "usb-a", "type a", "type-a"]},
+        {"name": "lightning", "patterns": ["lightning"], "excludes": ["lighting"]},
+        {"name": "hdmi", "patterns": ["hdmi"]},
+        {"name": "displayport", "patterns": ["displayport", "display port"]}
+      ]
+    },
+    "power_class": {
+      "values": [
+        {"name": "up to 20w", "patterns": ["18w", "20w", "20 w"]},
+        {"name": "21-45w", "patterns": ["25w", "30w", "35w", "45w"]},
+        {"name": "46-100w", "patterns": ["60w", "65w", "90w", "100w"]},
+        {"name": "over 100w", "patterns": ["120w", "140w", "200w", "240w"]}
+      ]
+    },
+    "port_count": {
+      "values": [
+        {"name": "1 port", "patterns": ["1 port", "single port"]},
+        {"name": "2 ports", "patterns": ["2 port", "2-port", "dual port"]},
+        {"name": "3 ports", "patterns": ["3 port", "3-port", "triple port"]},
+        {"name": "4+ ports", "patterns": ["4 port", "5 port", "6 port", "7 port", "8 port"]}
+      ]
+    },
+    "protocol": {
+      "values": [
+        {"name": "power delivery", "patterns": ["power delivery", "usb pd", "pd 3.0", "pd3.0"]},
+        {"name": "quick charge", "patterns": ["quick charge", "qc 3.0", "qc3.0"]},
+        {"name": "gan", "patterns": ["gan", "gallium nitride"]}
+      ]
+    }
+  },
+  "cross_pairs": [
+    ["connector", "power_class"],
+    ["power_class", "port_count"],
+    ["port_count", "protocol"]
+  ]
+}

@@ -1,102 +1,86 @@
-# Top100 产品属性标注指南
+# Top100 属性标注
 
-> 本文件指导如何对 category_report 返回的 Top100 产品进行多维度属性标注。
-> 标注结果是交叉分析和差异化建议的基础。
+## 原则
 
-## 执行流程
+- 通用引擎放在 `scripts/attribute-tagger.py`。
+- 品类知识放在 `references/dimensions/*.json`。
+- 未确认的自动发现维度只能用于探索，不能直接驱动正式蓝海结论。
+- 标题是主要证据，五点/描述用于补充，卖家属性字段只作低置信参考。
 
-```
-Step 1: 标题正则解析 100 个产品 → 标注已知/未知（覆盖率约 70-80%）
-Step 2: 对"未知"产品批量调 product_detail（每批 ≤8 并行）→ 补充缺失值
-Step 3: 记录手动修正 → top100_parsed.json
-```
+## 维度文件格式
 
-## 必须提取的基础字段
-
-以下字段 category_report 直接返回，必须一并提取：
-
-| 字段 | 来源 | 用途 |
-|------|------|------|
-| ASIN | category_report | 唯一标识 |
-| 标题 | category_report | 属性解析来源 |
-| 品牌 | category_report | 品牌集中度分析 |
-| 价格 | category_report | 价格带分析 |
-| 月销量 | category_report | 销量分布 |
-| 月销额 | category_report | 市场价值 |
-| 评论数 | category_report | 门槛评估 |
-| 评分 | category_report | 品质评估 |
-| 上线日期 | category_report | 新品分析 |
-| 上线天数 | category_report | 新品分析 |
-| 卖家类型 | category_report | FBA/FBM/自营 |
-
-## 属性标注维度（按品类定制）
-
-### 通用标注方法
-
-对每个品类，先执行「维度自发现」（4 路并行），再用以下方法标注：
-
-**路径 1：标题高频词聚类**
-- 对 100 条标题做词频统计
-- 过滤通用词（brand, portable, for 等）
-- 保留出现频率 ≥ 10% 的属性词
-
-**路径 2：关键词延伸词分析**
-- 对品类核心词调用 keyword_extends
-- 高搜索量修饰词 = 消费者关注的维度
-
-**路径 3：product_detail 属性 Key 提取**
-- 对 Top5 产品调用 product_detail
-- 从属性字段提取 key 名称
-
-**路径 4：品类评测文章（可选）**
-- WebSearch "[品类] buying guide"
-- 提取决策关键参数
-
-### 正则解析规则模板
-
-每个维度的标注规则格式：
-
-```
-维度名: [正则模式]
-  - 高置信: [明确匹配模式]
-  - 低置信: [模糊匹配，需验证]
-  - 排除: [容易误判的模式]
+```json
+{
+  "schema_version": 1,
+  "status": "confirmed",
+  "name": "electronics-accessories",
+  "dimensions": {
+    "connector": {
+      "values": [
+        {
+          "name": "usb-c",
+          "patterns": ["usb c", "usb-c", "type c"],
+          "excludes": []
+        }
+      ]
+    }
+  },
+  "cross_pairs": [["connector", "power_class"]]
+}
 ```
 
-### 标注置信度
+同义词合并到同一个 value。容易误判的词放入 `excludes`。正则模式使用 `re:` 前缀。
 
-| 置信度 | 条件 | 处理 |
-|--------|------|------|
-| 高 | 标题中明确匹配 | 直接使用 |
-| 低 | 模糊匹配或缺失 | 进入 product_detail 验证队列 |
-| 未知 | 标题和描述都无法确认 | 标记为"未知"，不跳过 |
+## 已知品类
 
-### 常见陷阱
+```bash
+python scripts/attribute-tagger.py \
+  --input <category-response.json> \
+  --dimensions-file references/dimensions/electronics.json \
+  --output-dir <run-dir>/attributes \
+  --price-unit cents
+```
 
-| 陷阱 | 示例 | 正确处理 |
-|------|------|----------|
-| 相似词混淆 | "Lighting Input" ≠ Lightning 线 | 这是端口描述 |
-| V/A 功率推算 | 5V/3A = 15W | 乘法计算 |
-| PD 不等于具体功率 | "PD Fast Charging" ≠ 20W | 标记待确认 |
-| 营销夸大 | "Super Fast" | 不可作为属性值 |
-| Pack vs Port | "2 Pack" ≠ 2口 | 组合上下文判断 |
-| 容量格式多样 | 10000mAh / 10,000 mAh | 正则需忽略大小写、处理逗号 |
+高客单价品类不要依赖 `--price-unit auto`，显式指定 `usd` 或 `cents`。
 
-### product_detail 字段可信度
+## 未知品类
 
-| 字段 | 可信度 | 使用建议 |
-|------|--------|----------|
-| 标题 | 高 | 主要解析来源 |
-| 产品描述（五点） | 中高 | 补充验证 |
-| 属性（Item Specifics） | 中低 | 卖家可能乱填，需交叉验证 |
-| 外包装尺寸 | 高 | 可推算实际大小 |
-| 价格/销量/评论 | 高 | 直接使用 |
+不传 `--dimensions-file`：
 
-**使用优先级**：标题 > 产品描述 > 属性字段
+```bash
+python scripts/attribute-tagger.py \
+  --input <category-response.json> \
+  --output-dir <run-dir>/attributes
+```
 
-## 输出文件
+脚本会：
+
+1. 使用通用材质、颜色、包装维度。
+2. 按标题文档频率提取 1-3 gram 和规格单位。
+3. 写出 `dimension-draft.json`。
+4. 标记 `requires_dimension_confirmation: true`。
+5. 标记 `decision_eligible: false`；所有交叉矩阵保持探索性。
+
+让用户确认以下内容：
+
+- 删除品类名、营销词和无决策意义词。
+- 合并单复数、拼写变体和同义词。
+- 将候选值分配到 5-8 个真正的购买决策维度。
+- 添加高风险误判排除词。
+- 将 `status` 改为 `confirmed` 后重新运行。
+
+不要把自动草稿直接保存为正式维度库。
+
+## 输出
 
 | 文件 | 内容 |
-|------|------|
-| `top100_parsed.json` | 每条产品 + N 个属性列 + 置信度 |
-| `uncertain_products.json` | 需 product_detail 验证的产品列表 |
+|---|---|
+| `top100_parsed.json` | 基础字段、属性值和逐维度置信度 |
+| `attribute_summary.json` | 分布、覆盖率、统计和警告 |
+| `cross_analysis.json` | 完整组合矩阵 |
+| `uncertain_products.json` | 需要补查详情的产品 |
+| `dimension-draft.json` | 未知品类候选维度 |
+
+优先补查“高销量 + 关键维度未知”的产品，而不是对全部 Top100 调详情接口。
+`scarce` 仍需独立需求证据；只有已确认维度下的
+`high_demand_low_supply` 才能直接成为机会候选。

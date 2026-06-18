@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "status": "confirmed",
+  "name": "generic-amazon",
+  "dimensions": {
+    "material": {
+      "values": [
+        {"name": "metal", "patterns": ["metal", "steel", "aluminum", "aluminium", "iron", "alloy"]},
+        {"name": "wood", "patterns": ["wood", "bamboo", "mdf", "particle board"]},
+        {"name": "plastic", "patterns": ["plastic", "abs", "polycarbonate"]},
+        {"name": "fabric", "patterns": ["fabric", "polyester", "cotton", "canvas", "nylon"]},
+        {"name": "glass", "patterns": ["glass", "tempered glass"]}
+      ]
+    },
+    "color_family": {
+      "values": [
+        {"name": "black", "patterns": ["black"]},
+        {"name": "white", "patterns": ["white"]},
+        {"name": "gray", "patterns": ["gray", "grey"]},
+        {"name": "brown", "patterns": ["brown", "walnut", "espresso", "mahogany"]},
+        {"name": "natural", "patterns": ["natural", "oak", "beige"]},
+        {"name": "blue", "patterns": ["blue", "navy"]},
+        {"name": "red", "patterns": ["red", "burgundy"]},
+        {"name": "green", "patterns": ["green", "olive"]}
+      ]
+    },
+    "pack_size": {
+      "values": [
+        {"name": "single", "patterns": ["single", "1 pack", "1-pack"]},
+        {"name": "2 pack", "patterns": ["2 pack", "2-pack", "2 pcs", "2 pieces"]},
+        {"name": "3 pack", "patterns": ["3 pack", "3-pack", "3 pcs", "3 pieces"]},
+        {"name": "4 pack", "patterns": ["4 pack", "4-pack", "4 pcs", "4 pieces"]},
+        {"name": "multipack", "patterns": ["5 pack", "6 pack", "8 pack", "10 pack", "12 pack"]}
+      ]
+    }
+  },
+  "cross_pairs": [
+    ["material", "color_family"],
+    ["material", "pack_size"]
+  ]
+}
