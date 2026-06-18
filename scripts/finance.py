@@ -263,7 +263,8 @@ def add_common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--fba-fee", type=float, required=True)
     parser.add_argument("--commission-rate", type=float, required=True)
     parser.add_argument("--storage-fee", type=float, default=0.0)
-    parser.add_argument("--return-rate", type=float, default=0.05)
+    parser.add_argument("--return-rate", type=float, required=True,
+                       help="Category-specific: Clothing/Shoes=0.15, Electronics=0.05, Home/Furniture=0.08, Pet=0.08, Sports=0.07, Tools=0.05, Office=0.05, Other=0.05")
     parser.add_argument("--cpc", type=float)
     parser.add_argument("--cvr", type=float)
     parser.add_argument("--ad-order-share", type=float, default=0.60)
