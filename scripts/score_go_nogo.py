@@ -80,31 +80,76 @@ def score_search_cvr(rate):
     if rate >= 0.02: return 5
     return 4
 
+def score_sales_growth(yoy_pct):
+    """22-dimension threshold: sales YoY growth → 1-10."""
+    if yoy_pct is None: return 5
+    if yoy_pct > 0.20: return 9
+    if yoy_pct > 0.05: return 7
+    if yoy_pct > -0.05: return 5
+    return 3
+
+def score_brand_cr3(cr3):
+    """22-dimension threshold: CR3 brand SKU share → 1-10. Lower = more fragmented."""
+    if cr3 is None: return 5
+    if cr3 < 0.30: return 9
+    if cr3 < 0.50: return 7
+    if cr3 < 0.70: return 5
+    return 3
+
+def score_brand_count(bc):
+    """ZPR threshold: >80 brands = ideal. Supplemental to CR3."""
+    if bc is None: return 5
+    if bc >= 80: return 10
+    if bc >= 50: return 7
+    if bc >= 30: return 5
+    return 3
+
 def compute_market_decision(search_volume, click_share_pct, new_product_rate,
-                             avg_reviews, cpc, search_cvr, brand_count=None):
+                             avg_reviews, cpc, search_cvr,
+                             brand_count=None, cr3_brand_pct=None,
+                             sales_yoy_pct=None):
+    """
+    Deterministic Market Decision from CLI raw data.
+    All thresholds from 22-dimension decision-thresholds.md and ZPR.
+    Returns (weighted_score, decision, dimension_scores_dict).
+    """
     ms = score_market_size(search_volume)
+    gs = score_sales_growth(sales_yoy_pct)
     cs = score_click_share(click_share_pct)
+    cr = score_brand_cr3(cr3_brand_pct)
+    bc = score_brand_count(brand_count)
     np = score_new_product_rate(new_product_rate)
     rv = score_review_barrier(avg_reviews)
     cp = score_cpc(cpc)
     cv = score_search_cvr(search_cvr)
 
-    bc = (10 if (brand_count and brand_count >= 50) else 5)
-    competition = round((cs + np * 0.4 + rv * 0.4 + cp * 0.3 + bc * 0.1) / 2.2, 1)
+    # Market size enriched by sales growth (22-dimension A1+A2)
+    market_size_effective = round(ms * 0.6 + gs * 0.4, 1)
+
+    # Competition: ClickShare 35% + CR3 25% + entry difficulty 40%
+    entry_difficulty = round(np * 0.5 + rv * 0.5, 1)
+    brand_competition = round(cs * 0.5 + cr * 0.3 + bc * 0.2, 1)
+    competition = round(brand_competition * 0.5 + entry_difficulty * 0.35 + score_cpc(cpc) * 0.15, 1)
+
+    # Barrier: new product rate + reviews + CPC accessibility
+    barrier = round(np * 0.35 + rv * 0.35 + cp * 0.3, 1)
 
     weighted = round(
-        MARKET_WEIGHTS["market_size"] * ms +
+        MARKET_WEIGHTS["market_size"] * market_size_effective +
         MARKET_WEIGHTS["competition"] * competition +
         MARKET_WEIGHTS["demand_clarity"] * cv +
-        MARKET_WEIGHTS["barrier"] * ((np + rv) / 2),
+        MARKET_WEIGHTS["barrier"] * barrier,
         1)
 
     decision = score_decision(weighted)
     return weighted, decision, {
-        "market_size": (ms, f"SearchVolume={search_volume}"),
-        "competition": (competition, f"ClickShare={click_share_pct},NewProd={new_product_rate},Reviews={avg_reviews},CPC={cpc}"),
+        "market_size": (market_size_effective,
+            f"SV={search_volume}(base={ms}) + YoY={sales_yoy_pct}(growth={gs})"),
+        "competition": (competition,
+            f"ClickShare={click_share_pct}({cs}) CR3={cr3_brand_pct}({cr}) Brands={brand_count}({bc}) NewProd={new_product_rate}({np}) Reviews={avg_reviews}({rv}) CPC={cpc}({cp})"),
         "demand_clarity": (cv, f"SearchCVR={search_cvr}"),
-        "barrier": (round((np+rv)/2, 1), f"NewProd={new_product_rate},Reviews={avg_reviews}"),
+        "barrier": (barrier,
+            f"NewProd={new_product_rate}({np}) Reviews={avg_reviews}({rv}) CPC={cpc}({cp})"),
     }
 
 def score_decision(score: float) -> str:
