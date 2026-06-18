@@ -28,6 +28,84 @@ VALID_LAUNCH_DECISIONS = {
     "NOT_RUN",
 }
 
+# ==== Deterministic Market Scoring (from 22-dimension decision-thresholds.md) ====
+
+def score_market_size(search_volume):
+    if search_volume >= 100000: return 9
+    if search_volume >= 50000: return 7
+    if search_volume >= 20000: return 5
+    if search_volume >= 10000: return 4
+    return 3
+
+def score_click_share(pct):
+    if pct is None: return 5
+    if pct < 0.20: return 10
+    if pct < 0.30: return 9
+    if pct < 0.40: return 7
+    if pct < 0.50: return 6
+    if pct < 0.60: return 4
+    if pct < 0.70: return 3
+    return 1
+
+def score_new_product_rate(rate):
+    if rate is None: return 5
+    if rate >= 0.20: return 10
+    if rate >= 0.15: return 8
+    if rate >= 0.10: return 6
+    if rate >= 0.05: return 4
+    return 2
+
+def score_review_barrier(avg_reviews):
+    if avg_reviews is None: return 5
+    if avg_reviews < 300: return 10
+    if avg_reviews < 500: return 9
+    if avg_reviews < 1000: return 7
+    if avg_reviews < 2000: return 6
+    if avg_reviews < 5000: return 4
+    return 2
+
+def score_cpc(cpc):
+    if cpc is None: return 5
+    if cpc < 0.80: return 10
+    if cpc < 1.50: return 7
+    if cpc < 2.00: return 5
+    if cpc < 3.00: return 4
+    return 2
+
+def score_search_cvr(rate):
+    if rate is None: return 5
+    if rate >= 0.15: return 10
+    if rate >= 0.10: return 8
+    if rate >= 0.05: return 6
+    if rate >= 0.02: return 5
+    return 4
+
+def compute_market_decision(search_volume, click_share_pct, new_product_rate,
+                             avg_reviews, cpc, search_cvr, brand_count=None):
+    ms = score_market_size(search_volume)
+    cs = score_click_share(click_share_pct)
+    np = score_new_product_rate(new_product_rate)
+    rv = score_review_barrier(avg_reviews)
+    cp = score_cpc(cpc)
+    cv = score_search_cvr(search_cvr)
+
+    bc = (10 if (brand_count and brand_count >= 50) else 5)
+    competition = round((cs + np * 0.4 + rv * 0.4 + cp * 0.3 + bc * 0.1) / 2.2, 1)
+
+    weighted = round(
+        MARKET_WEIGHTS["market_size"] * ms +
+        MARKET_WEIGHTS["competition"] * competition +
+        MARKET_WEIGHTS["demand_clarity"] * cv +
+        MARKET_WEIGHTS["barrier"] * ((np + rv) / 2),
+        1)
+
+    decision = score_decision(weighted)
+    return weighted, decision, {
+        "market_size": (ms, f"SearchVolume={search_volume}"),
+        "competition": (competition, f"ClickShare={click_share_pct},NewProd={new_product_rate},Reviews={avg_reviews},CPC={cpc}"),
+        "demand_clarity": (cv, f"SearchCVR={search_cvr}"),
+        "barrier": (round((np+rv)/2, 1), f"NewProd={new_product_rate},Reviews={avg_reviews}"),
+    }
 
 def score_decision(score: float) -> str:
     if score >= 7.5:
