@@ -237,21 +237,22 @@ def combine(payload: dict[str, Any]) -> dict[str, Any]:
     elif market_decision == "NO-GO":
         overall = "NO-GO"
         reason = "Market viability is below the entry threshold."
-    elif market_decision == "HOLD":
-        overall = "HOLD"
-        reason = "Market evidence is not strong enough to advance."
     elif financial_decision == "NO-GO":
         overall = "NO-GO"
         reason = "Unit economics fail even though market evidence may be positive."
-    elif financial_decision == "HOLD":
-        overall = "HOLD"
-        reason = "Financial viability is below the advancement threshold."
     elif launch_decision == "NO-GO":
         overall = "NO-GO"
         reason = "Launch feasibility failed under the configured constraints."
+    elif market_decision == "HOLD":
+        overall = "HOLD"
+        reason = "Market evidence is not strong enough to advance."
+    elif financial_decision == "HOLD":
+        overall = "HOLD"
+        reason = "Financial viability is below the advancement threshold."
     elif launch_decision == "HOLD":
         overall = "HOLD"
         reason = "Launch capital or payback constraints require a pause."
+
     elif financial_decision == "PENDING" or launch_decision in {"PENDING", "NOT_RUN"} or pending:
         overall = "CONDITIONAL GO"
         reason = "Market can advance to validation, but finance, launch, or hard gates are pending."

@@ -66,7 +66,7 @@ python scripts/attribute-tagger.py \
 ```bash
 python scripts/finance.py reverse \
   --price 39.99 --fba-fee 8.20 --commission-rate 15 \
-  --cpc 0.80 --cvr 8 --freight-assumption 4
+  --return-rate 0.05 --cpc 0.80 --cvr 8 --freight-assumption 4
 ```
 
 ### 正式财务
@@ -74,7 +74,7 @@ python scripts/finance.py reverse \
 ```bash
 python scripts/finance.py forward \
   --price 39.99 --fba-fee 8.20 --commission-rate 15 \
-  --product-cost 7.50 --freight 4 \
+  --return-rate 0.05 --product-cost 7.50 --freight 4 \
   --cpc 0.80 --cvr 8
 ```
 
