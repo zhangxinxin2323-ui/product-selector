@@ -77,12 +77,13 @@ def generate_prompt(products: list[dict], output_path: Path) -> Path:
     lines = []
     lines.append("# Top100 Product Attribute Discovery + Tagging\n")
     lines.append(f"Total products: {len(products)}\n")
-    lines.append("## Step 1: Discover 5-8 purchase-decision attribute dimensions\n")
-    lines.append("Read all titles below. Extract the dimensions consumers use to compare these products.\n")
-    lines.append("For each dimension, provide: name, label(中文), description, 3-6 example values.\n")
-    lines.append("\n## Step 2: Tag every product\n")
-    lines.append("Output a JSON array where each element has: asin + all discovered attribute values.\n")
-    lines.append("Use 'unknown' for products where the title doesn't reveal a dimension's value.\n")
+    lines.append("Work in TWO phases:\n")
+    lines.append("## Phase 1: Tag from titles (this pass)\n")
+    lines.append("Read all titles below. Extract 5-8 purchase-decision attribute dimensions.\n")
+    lines.append("Tag every product from title info alone. Tag as 'unknown' when title lacks the dimension.\n")
+    lines.append("\n## Phase 2: ProductRequest enrichment (next pass)\n")
+    lines.append("Products with >=2 unknown attrs will be enriched with bullet points from ProductRequest.\n")
+    lines.append("You will then re-tag those ASINs using the full product description.\n")
     lines.append(f"\n## Product Titles (first {MAX_TITLES_PER_PROMPT})\n")
     for i, p in enumerate(products[:MAX_TITLES_PER_PROMPT]):
         lines.append(f"{i+1:3d}. [{p['brand']}] ${p['price']:.0f} | {p['title'][:100]}")
@@ -129,7 +130,31 @@ def merge_and_write_csv(products: list[dict], tagged: list[dict], output_path: P
     if tagged:
         attr_cols = [k for k in tagged[0] if k != "asin"]
 
-    # Fields: base + attributes
+def generate_enrich_list(products: list[dict], tagged: list[dict], unknown_threshold: int = 2) -> Path | None:
+    """Find ASINs with too many unknown attributes that need ProductRequest enrichment."""
+    tagged_map = {t["asin"]: t for t in tagged}
+    attr_cols = [k for k in tagged[0] if k != "asin"] if tagged else []
+
+    needs_enrichment = []
+    for p in products:
+        tag = tagged_map.get(p["asin"], {})
+        unknown_count = sum(1 for ac in attr_cols if tag.get(ac, "") in ("", "unknown", "other"))
+        if unknown_count >= unknown_threshold:
+            needs_enrichment.append({
+                "asin": p["asin"],
+                "title": p["title"],
+                "unknown_attrs": unknown_count,
+                "total_attrs": len(attr_cols),
+            })
+
+    if needs_enrichment:
+        output_path = Path("enrich_asins.json")
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(needs_enrichment, f, indent=2, ensure_ascii=False)
+        print(f"⚠️  {len(needs_enrichment)} ASINs need ProductRequest enrichment → {output_path}")
+        print(f"   Run: ProductRequest for each ASIN, extract Description/bullets, re-tag unknown attrs")
+        return output_path
+    return None
     base_names = [b[1] for b in BASE_FIELDS[:1]] + [b[0] for b in BASE_FIELDS[1:]]
     # Use Chinese labels for base fields
     base_labels = [b[0] for b in BASE_FIELDS]
@@ -177,6 +202,13 @@ def main() -> int:
         for dim, count in validation["unknown_counts"].items():
             pct = count / max(validation["total"], 1) * 100
             print(f"  {dim}: {count} unknown ({pct:.0f}%)")
+
+        # Phase 2 check: find ASINs needing ProductRequest enrichment
+        enrich_file = generate_enrich_list(products, tagged)
+        if enrich_file:
+            print("→ Next: run ProductRequest for enrichment ASINs, then re-tag with descriptions")
+            print("  sorftime api ProductRequest '{\"asin\":\"<asin1>,<asin2>,...,<asin10>\"}' --domain 1")
+            print("  Max 10 ASINs per call. Prioritize ASINs with most unknown attrs.")
 
         merge_and_write_csv(products, tagged, args.output)
         return 0
