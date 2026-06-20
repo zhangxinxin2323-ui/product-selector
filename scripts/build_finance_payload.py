@@ -149,7 +149,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--analysis-key", required=True)
     parser.add_argument("--domain", type=int, default=1)
-    parser.add_argument("--percent-scale", choices=("fraction", "whole"), default="fraction")
+    parser.add_argument("--percent-scale", choices=("fraction",), default="fraction",
+                       help="Only 0-1 fraction is supported. whole mode removed per SKILL rule 9.")
     parser.add_argument("--evidence-index", default="")
     parser.add_argument("--linked-candidate-id", default="")
     parser.add_argument("--linked-screening-id", default="")

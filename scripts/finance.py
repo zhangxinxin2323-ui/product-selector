@@ -189,6 +189,18 @@ def forward_analysis(args: argparse.Namespace) -> dict[str, Any]:
     if landed_cost <= 0:
         raise ValueError("Provide --landed-cost or a positive --product-cost.")
 
+    if args.cpc is None or args.cvr is None:
+        return {
+            "mode": "forward",
+            "needs_input": True,
+            "reason": (
+                "CPC and/or CVR missing. "
+                "Per SKILL rule 12, forward finance requires user-supplied click CVR. "
+                "Sorftime SearchConversionRate is NOT click CVR and cannot substitute. "
+                "Run reverse mode instead, or provide --cpc and --cvr."
+            ),
+        }
+
     ad_cost, assumptions, ad_source = advertising_cost(
         args.price,
         args.cpc,
