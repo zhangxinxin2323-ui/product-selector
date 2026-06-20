@@ -71,34 +71,56 @@ def extract_products(input_path: Path) -> list[dict]:
     return result
 
 
-def generate_prompt(products: list[dict], output_path: Path) -> Path:
-    """Generate a prompt file for LLM attribute discovery."""
-    prompt_path = output_path.with_suffix(".prompt.txt")
+def generate_prompt(products: list[dict], output_path: Path, step: str = "discover", dimensions: list | None = None) -> Path:
+    """Generate a prompt file for LLM attribute discovery OR tagging.
+
+    step='discover': Claude outputs dimension definitions only (5-8 dims)
+    step='tag': Claude tags all products using confirmed dimensions
+    """
+    prompt_path = output_path.with_suffix(
+        ".dimensions.prompt.txt" if step == "discover" else ".tagging.prompt.txt"
+    )
     lines = []
-    lines.append("# Top100 Product Attribute Discovery + Tagging\n")
-    lines.append(f"Total products: {len(products)}\n")
-    lines.append("Work in TWO phases:\n")
-    lines.append("## Phase 1: Tag from titles (this pass)\n")
-    lines.append("Read all titles below. Extract 5-8 purchase-decision attribute dimensions.\n")
-    lines.append("Tag every product from title info alone. Tag as 'unknown' when title lacks the dimension.\n")
-    lines.append("\n## Phase 2: ProductRequest enrichment (next pass)\n")
-    lines.append("Products with >=2 unknown attrs will be enriched with bullet points from ProductRequest.\n")
-    lines.append("You will then re-tag those ASINs using the full product description.\n")
+
+    if step == "discover":
+        lines.append("# Step 1: Discover Purchase-Decision Attribute Dimensions\n")
+        lines.append(f"Read {len(products)} product titles below.\n")
+        lines.append("Extract 5-8 dimensions consumers use to compare these products.\n")
+        lines.append("For each dimension output: name, label(中文), description(1句), 3-6 example values.\n")
+        lines.append("Focus on dimensions that differentiate products — not generic descriptors.\n")
+        lines.append("\nDO NOT tag individual products yet. Only output dimension definitions.\n")
+    else:
+        lines.append("# Step 2: Tag All Products with Confirmed Dimensions\n")
+        lines.append("Using the confirmed dimensions below, tag every product.\n")
+        lines.append("For each ASIN, fill in all dimension values from the title.\n")
+        lines.append("Use 'unknown' when the title doesn't reveal a dimension.\n")
+        if dimensions:
+            lines.append("\n## Confirmed Dimensions (DO NOT modify)\n")
+            for d in dimensions:
+                lines.append(f"  - {d.get('name','?')} ({d.get('label','?')}): {d.get('description','?')}")
+                lines.append(f"    Allowed values: {', '.join(d.get('examples',[]))}\n")
+        lines.append(f"\nTotal products to tag: {len(products)}\n")
+
     lines.append(f"\n## Product Titles (first {MAX_TITLES_PER_PROMPT})\n")
     for i, p in enumerate(products[:MAX_TITLES_PER_PROMPT]):
-        lines.append(f"{i+1:3d}. [{p['brand']}] ${p['price']:.0f} | {p['title'][:100]}")
+        lines.append(f"{i+1:3d}. [{p['brand']}] ${p['price']:.0f} | {p['title'][:120]}")
     lines.append(f"\n## Output Format\n")
     lines.append("```json")
-    lines.append('{')
-    lines.append('  "dimensions": [')
-    lines.append('    {"name": "...", "label": "...", "description": "...", "examples": ["..."]}')
-    lines.append('  ],')
-    lines.append('  "products": [')
-    lines.append('    {"asin": "B0X", "dim1_value": "...", "dim2_value": "..."}')
-    lines.append('  ]')
-    lines.append('}')
+    if step == "discover":
+        lines.append('{')
+        lines.append('  "dimensions": [')
+        lines.append('    {"name": "...", "label": "...", "description": "...", "examples": ["..."]}')
+        lines.append('  ]')
+        lines.append('}')
+    else:
+        lines.append('{')
+        lines.append('  "products": [')
+        lines.append('    {"asin": "B0X", "dim1_value": "...", "dim2_value": "..."}')
+        lines.append('  ]')
+        lines.append('}')
     lines.append("```")
     lines.append("\nOnly output the JSON. No other text.")
+
     prompt_path.write_text("\n".join(lines), encoding="utf-8")
     return prompt_path
 
@@ -178,7 +200,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Build pivot-ready CSV from Top100 + LLM tagging")
     parser.add_argument("--input", type=Path, required=True, help="CategoryRequest JSON")
     parser.add_argument("--output", type=Path, required=True, help="Output CSV path")
+    parser.add_argument("--step", choices=("discover", "tag"), default="discover",
+                       help="discover: output dimension definitions | tag: tag products with confirmed dims")
     parser.add_argument("--tagged-json", type=Path, help="Claude's tagged JSON (if already run)")
+    parser.add_argument("--dimensions-json", type=Path, help="Confirmed dimensions JSON (for tag step)")
     parser.add_argument("--prompt-only", action="store_true", help="Only generate prompt file, don't build CSV")
     args = parser.parse_args()
 
@@ -186,8 +211,17 @@ def main() -> int:
     print(f"Extracted {len(products)} products from {args.input}")
 
     if args.prompt_only:
-        prompt_path = generate_prompt(products, args.output)
+        dims = None
+        if args.step == "tag" and args.dimensions_json:
+            dims_data = json.loads(args.dimensions_json.read_text(encoding="utf-8"))
+            dims = dims_data if isinstance(dims_data, list) else dims_data.get("dimensions", [])
+        prompt_path = generate_prompt(products, args.output, step=args.step, dimensions=dims)
         print(f"Prompt written: {prompt_path}")
+        print(f"\nNext: Claude reads this, outputs JSON.")
+        if args.step == "discover":
+            print(f"  Then: User confirms dimensions → re-run: --step tag --dimensions-json <dims.json> --prompt-only")
+        else:
+            print(f"  Then: re-run: --tagged-json <claude_output.json> to build CSV")
         return 0
 
     if args.tagged_json:
