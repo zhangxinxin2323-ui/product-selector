@@ -89,25 +89,26 @@ description: >
 - `pending`：整体最多 CONDITIONAL GO。
 - `pass` / `not_applicable`：不限制决策。
 
-### Step 3：属性、交叉与 VOC
+### Step 3：属性标注、交叉分析、透视表输出
 
-读取 [`references/attribute-tagging.md`](references/attribute-tagging.md) 和
-[`references/cross-analysis.md`](references/cross-analysis.md)。
+> 目标：让用户拿到一份可透视的 CSV——每个 ASIN 一行，含价格/销量/评论 + 5-8 个 AI 发现的购买决策属性。
 
-1. 有已确认品类库时，运行：
+**3.1 正则快速标注**（attribute-tagger.py）：
+有已确认品类维度库时跑属性标注脚本。正则覆盖约 30-70% 标题，unknown 属正常。
 
+**3.2 AI 属性发现 + 全量标注**（⛔ 必须执行）：
 ```bash
-python scripts/attribute-tagger.py --input <category.json> \
-  --dimensions-file references/dimensions/<category>.json \
-  --output-dir <run-dir>/attributes --price-unit cents
+python scripts/build_pivot_table.py --input <category.json> --output <run-dir>/pivot.csv --prompt-only
 ```
+读取生成的 `.prompt.txt` 文件，对 100 条标题做属性发现和标注。按 Prompt 要求的 JSON 格式输出。**不得跳过——此步骤产出的是 Next Step 可操作的透视数据。**
 
-2. 没有品类库时不猜维度。运行自发现，生成 `dimension-draft.json`，让用户确认或修订后再正式标注。
-3. 对高价值未知记录补查 product detail；不要为所有产品重复调用。
-4. quick 模式做评论摘要；deep-voc 模式读取
-   [`references/review-insight-integration.md`](references/review-insight-integration.md)。
+标注完成后：
+```bash
+python scripts/build_pivot_table.py --input <category.json> --output <run-dir>/pivot.csv --tagged-json <tagged.json>
+```
+验证 100 条全标注，合并基础数据 + 属性 → CSV。缺失标记 unknown。
 
-只有具备需求证据的 `scarce` 或 `high_demand_low_supply` 组合可以进入机会优先级。
+**3.3 交叉分析 + VOC**：基于 AI 标注后的属性表格生成交叉矩阵。读取 [`references/cross-analysis.md`](references/cross-analysis.md)。只有具备需求证据的组合可以进入机会优先级。
 
 ### Step 4：财务可行性
 
