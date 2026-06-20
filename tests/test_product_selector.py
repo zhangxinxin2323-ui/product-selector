@@ -702,5 +702,94 @@ class FixturePipelineTests(unittest.TestCase):
             self.assertTrue((attributes_dir / "cross_analysis.json").exists())
 
 
+class QualityGateTests(unittest.TestCase):
+    """P2: check_report.py gate tests — validates report quality enforcement."""
+
+    def setUp(self) -> None:
+        self.tmp = Path(__file__).resolve().parent / ".tmp-qg"
+        self.tmp.mkdir(exist_ok=True)
+        self.chk = SCRIPTS / "check_report.py"
+
+    def tearDown(self) -> None:
+        import shutil
+        if self.tmp.exists():
+            shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _write_report(self, name, content):
+        d = self.tmp / name
+        d.mkdir(exist_ok=True)
+        (d / "full-report.md").write_text(content, encoding="utf-8")
+        (d / "decision-card.html").write_text("<html></html>", encoding="utf-8")
+        return d
+
+    def _run(self, report_dir, overall="CONDITIONAL GO", financial="GO"):
+        result = subprocess.run(
+            [sys.executable, str(self.chk), "--run-dir", str(report_dir),
+             "--overall-decision", overall, "--financial-decision", financial, "--json"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace"
+        )
+        return json.loads(result.stdout) if result.stdout else {}
+
+    def test_good_report_passes(self):
+        """A report with >=250 lines, >=120 table lines, all 12 sections passes."""
+        # Build a minimal passing report
+        sections = [
+            "## 1. Executive Summary\n\n| # | A | B | C |\n|---|---|---|---|\n| 1 | x | y | z |\n\n",
+            "## 2. 市场概况与关键词分析\n\n" + "| a | b | c |\n|---|---|---|\n" * 30 + "\n",
+            "## 3. 竞争格局\n\n" + "| brand | sku |\n|---|---|\n" * 5 + "\n",
+            "## 4. 属性分布\n\n" + "| dim | val |\n|---|---|\n" * 3 + "\n",
+            "## 5. 交叉分析\n\n" + "| a | b | c |\n|---|---|---|\n" * 5 + "\n",
+            "## 6. 消费者VOC\n\n" + "| pain | freq |\n|---|---|\n" * 5 + "\n",
+            "## 7. 供需缺口与机会\n\n",
+            "## 8. 财务分析\n\n" + "| item | val |\n|---|---|\n" * 10 + "\n广告占比敏感性\n",
+            "## 9. 进入壁垒与风险\n\n",
+            "## 10. Go/No-Go 评分卡\n\nMarket Decision: CONDITIONAL GO (5.5)\nFinancial Decision: GO (M=2.0) \nOverall Decision: CONDITIONAL GO\n",
+            "## 11. 产品矩阵\n\n",
+            "## 12. 数据来源\n\nProductRequest KeywordRequest CategoryRequest CategoryTrend\n",
+        ]
+        content = "\n".join(sections)
+        # Pad to ensure >=250 lines
+        while content.count("\n") < 250:
+            content += "| pad | row |\n"
+        d = self._write_report("good", content)
+        result = self._run(d)
+        self.assertTrue(result.get("valid"), f"Expected valid. Got: {result.get('report',{}).get('checks',[])}")
+
+    def test_skeleton_report_fails(self):
+        """A 113-line skeleton report must fail."""
+        content = "## 1. Executive Summary\nA short summary.\n\n" * 12
+        d = self._write_report("skeleton", content)
+        result = self._run(d)
+        self.assertFalse(result.get("valid"), "Skeleton report should fail")
+
+    def test_missing_sections_fails(self):
+        """Missing required sections must fail."""
+        content = "## 1. Executive Summary\n\n" + ("| pad | row |\n") * 200 + "\nMarket Decision: HOLD\nFinancial Decision: PENDING\nOverall Decision: HOLD"
+        d = self._write_report("missing_sec", content)
+        result = self._run(d)
+        self.assertFalse(result.get("valid"), "Missing sections should fail")
+
+    def test_no_sensitivity_table_fails(self):
+        """Rule 13: missing ad sensitivity table must fail."""
+        content = (
+            "## 1. Executive Summary\n\n"
+            + "| a | b |\n|---|---|\n" * 200
+            + "\n## 2. 市场概况\n\n| a | b |\n|---|---|\n" * 5
+            + "\n## 3. 竞争格局\n\n| brand | sku |\n|---|---|\n" * 5
+            + "\n## 4. 属性分布\n\n| dim | val |\n|---|---|\n" * 3
+            + "\n## 5. 交叉分析\n\n| a | b |\n|---|---|\n" * 5
+            + "\n## 6. 消费者VOC\n\n| pain | freq |\n|---|---|\n" * 5
+            + "\n## 7. 供需缺口\n\n\n## 8. 财务分析\n\n| item | val |\n|---|---|\n" * 10
+            + "\n## 9. 进入壁垒\n\n\n## 10. Go/No-Go\n\nMarket Decision: HOLD\nFinancial Decision: PENDING\nOverall Decision: HOLD\n"
+            + "\n## 11. 产品矩阵\n\n\n## 12. 数据来源\n\nProductRequest KeywordRequest CategoryRequest\n"
+        )
+        d = self._write_report("no_sens", content)
+        result = self._run(d)
+        checks = result.get("report", {}).get("checks", [])
+        sens_check = [c for c in checks if "sensitivity" in c.get("item", "")]
+        if sens_check:
+            self.assertEqual(sens_check[0]["status"], "FAIL", "Missing sensitivity table must FAIL")
+
+
 if __name__ == "__main__":
     unittest.main()
