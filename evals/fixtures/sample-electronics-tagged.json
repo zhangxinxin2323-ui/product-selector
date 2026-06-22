@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "dimension_set": "electronics-accessories",
+  "products": [
+    {"asin": "TEST000001", "connector": "usb-c", "power_class": "up to 20w", "port_count": "1 port", "protocol": "unknown"},
+    {"asin": "TEST000002", "connector": "usb-c", "power_class": "up to 20w", "port_count": "2 ports", "protocol": "unknown"},
+    {"asin": "TEST000003", "connector": "usb-c", "power_class": "46-100w", "port_count": "2 ports", "protocol": "gan"},
+    {"asin": "TEST000004", "connector": "usb-a", "power_class": "up to 20w", "port_count": "2 ports", "protocol": "unknown"},
+    {"asin": "TEST000005", "connector": "lightning", "power_class": "up to 20w", "port_count": "1 port", "protocol": "unknown"},
+    {"asin": "TEST000006", "connector": "usb-c", "power_class": "46-100w", "port_count": "3 ports", "protocol": "power delivery"},
+    {"asin": "TEST000007", "connector": "usb-c", "power_class": "unknown", "port_count": "unknown", "protocol": "unknown"},
+    {"asin": "TEST000008", "connector": "usb-c", "power_class": "46-100w", "port_count": "4+ ports", "protocol": "gan"}
+  ]
+}

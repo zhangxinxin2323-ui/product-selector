@@ -9,6 +9,7 @@ Claude MUST run this after every analysis. It exits non-zero if ANY gate fails.
 """
 
 import argparse
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -29,6 +30,12 @@ def main() -> int:
     parser.add_argument("--report-dir", type=Path, required=True, help="Report output directory")
     parser.add_argument("--overall", required=True, help="Overall Decision (GO|CONDITIONAL GO|HOLD|NO-GO)")
     parser.add_argument("--financial", required=True, help="Financial Decision (GO|CONDITIONAL GO|HOLD|NO-GO|PENDING)")
+    parser.add_argument("--write-mode", choices=("dry-run", "live"), default="dry-run")
+    parser.add_argument(
+        "--feishu-verification",
+        type=Path,
+        help="Live-write verification JSON containing record IDs and readback status.",
+    )
     args = parser.parse_args()
 
     failures = 0
@@ -45,15 +52,15 @@ def main() -> int:
     rc, out, err = run("report_lint.py", str(report_dir / "full-report.md"))
     if rc == 0:
         try:
-            import json
             d = json.loads(out) if out else {}
             if d.get("valid"):
                 print(f"  PASS: {d.get('section_count', '?')} sections, {len(d.get('errors', []))} errors")
             else:
                 failures += 1
                 print(f"  FAIL: {d.get('errors', [])}")
-        except:
-            print(f"  PASS (exit 0)")
+        except (json.JSONDecodeError, TypeError) as exc:
+            failures += 1
+            print(f"  FAIL: invalid report_lint JSON: {exc}")
     else:
         failures += 1
         print(f"  FAIL (exit {rc}): {out[:200]}")
@@ -75,8 +82,9 @@ def main() -> int:
                 for c in d.get("report", {}).get("checks", []):
                     if c["status"] != "PASS":
                         print(f"  FAIL: {c['item']} — {c['detail']}")
-        except:
-            print(f"  PASS (exit 0)")
+        except (json.JSONDecodeError, TypeError) as exc:
+            failures += 1
+            print(f"  FAIL: invalid check_report JSON: {exc}")
     else:
         failures += 1
         print(f"  FAIL (exit {rc})")
@@ -92,14 +100,15 @@ def main() -> int:
             else:
                 failures += 1
                 print(f"  FAIL: {d.get('errors', [])}")
-        except:
-            print(f"  PASS (exit 0)")
+        except (json.JSONDecodeError, TypeError) as exc:
+            failures += 1
+            print(f"  FAIL: invalid run_evals JSON: {exc}")
     else:
         failures += 1
         print(f"  FAIL (exit {rc})")
 
-    # Gate 4: Feishu table coverage (informational — can't automate from script)
-    print("\n[4/4] Feishu table coverage (manual check)")
+    # Gate 4: Feishu writes are not required in dry-run; live writes require evidence.
+    print("\n[4/4] Feishu write verification")
     tables = {
         "candidate": True,
         "ai_analysis": True,
@@ -108,16 +117,30 @@ def main() -> int:
         "development": overall.upper() in ("GO", "CONDITIONAL GO"),
         "supplier": False,
     }
-    written = []
-    skipped = []
-    for t, should_write in tables.items():
-        if should_write:
-            written.append(t)
-        else:
-            skipped.append(t)
-    print(f"  Must write: {', '.join(written)}")
-    print(f"  Skip OK:    {', '.join(skipped)}")
-    print(f"  [MANUAL] Verify these tables have records. Check recvm* IDs exist in conversation above.")
+    required_tables = [name for name, required in tables.items() if required]
+    if args.write_mode == "dry-run":
+        print("  PASS: dry-run mode; no Feishu mutation is expected")
+    elif not args.feishu_verification or not args.feishu_verification.is_file():
+        failures += 1
+        print("  FAIL: live mode requires --feishu-verification JSON")
+    else:
+        try:
+            evidence = json.loads(args.feishu_verification.read_text(encoding="utf-8"))
+            records = evidence.get("records", {})
+            missing = [
+                table
+                for table in required_tables
+                if not records.get(table, {}).get("record_id")
+                or records.get(table, {}).get("readback_verified") is not True
+            ]
+            if evidence.get("verified") is not True or missing:
+                failures += 1
+                print(f"  FAIL: missing verified readback for {missing}")
+            else:
+                print(f"  PASS: verified readback for {', '.join(required_tables)}")
+        except (OSError, json.JSONDecodeError, TypeError) as exc:
+            failures += 1
+            print(f"  FAIL: invalid Feishu verification JSON: {exc}")
 
     # Summary
     print(f"\n{'='*60}")

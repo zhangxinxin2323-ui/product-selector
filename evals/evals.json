@@ -39,6 +39,18 @@
       "provenance": "synthetic",
       "sha256": "3ed578d48c068123de2c7b9ecc9c2d6807fc0dc7c90f81f88c3f24020cdaf3db",
       "purpose": "VOC bundle fixture"
+    },
+    {
+      "path": "fixtures/sample-electronics-tagged.json",
+      "provenance": "synthetic",
+      "sha256": "0d1c1da6554207fb67a0ce34ba706bb4681fa4c3d5daabde59c6089876940b2f",
+      "purpose": "Golden attribute tagging and pivot replay fixture"
+    },
+    {
+      "path": "fixtures/sample-run-expected.json",
+      "provenance": "synthetic",
+      "sha256": "ee9abdbfba51cf3669a502d5c39503c7693022db2dde5d0119c960872df0867f",
+      "purpose": "Golden end-to-end replay summary"
     }
   ],
   "evals": [
@@ -102,6 +114,21 @@
         "at least three Sorftime source types are cited",
         "market and finance decisions are separated",
         "no unresolved placeholder remains"
+      ]
+    },
+    {
+      "id": "golden-pivot-replay",
+      "prompt": "使用确认版电子配件维度重放同一份 Top100 数据并生成透视 CSV。",
+      "files": [
+        "fixtures/sample-electronics-category.json",
+        "fixtures/sample-electronics-tagged.json",
+        "fixtures/sample-run-expected.json"
+      ],
+      "expected_checks": [
+        "all source ASINs appear exactly once",
+        "dimension values conform to the confirmed schema",
+        "explicit cents conversion produces stable prices",
+        "pivot CSV and validation JSON are generated"
       ]
     }
   ]

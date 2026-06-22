@@ -1,5 +1,10 @@
 # Product Selector
 
+## 版本与回滚
+
+- `v1.1.0`：严格属性 schema、确定性 pivot、黄金样例 replay、真实门禁。
+- `v1.0.0`：发布前回滚基线。新版本出现问题时可按该标签安装或检出。
+
 Amazon 选品决策 Skill。支持 ASIN、关键词、类目 NodeId 和飞书候选队列，输出证据化的市场、属性、VOC、财务和产品开发建议。
 
 ## 设计重点
@@ -54,6 +59,23 @@ python scripts/attribute-tagger.py \
   --price-unit cents
 ```
 
+### 可透视 CSV 与标注校验
+
+```bash
+python scripts/build_pivot_table.py \
+  --input evals/fixtures/sample-electronics-category.json \
+  --dimensions-file references/dimensions/electronics.json \
+  --tagged-json evals/fixtures/sample-electronics-tagged.json \
+  --price-unit cents \
+  --output outputs/demo/pivot.csv
+
+python scripts/check_tagging.py \
+  --input evals/fixtures/sample-electronics-category.json \
+  --tagged-json evals/fixtures/sample-electronics-tagged.json \
+  --dimensions-file references/dimensions/electronics.json \
+  --price-unit cents
+```
+
 内置维度库：
 
 - `generic.json`
@@ -102,6 +124,12 @@ python scripts/validate_config.py config.example.json
 
 ```bash
 python scripts/run_evals.py
+```
+
+完整黄金样例可重复生成 pivot、标注校验、财务结果并验证报告：
+
+```bash
+python scripts/replay_sample_run.py --output-dir outputs/sample-replay
 ```
 
 测试 fixture 为合成数据，只用于验证引擎行为，不代表真实市场结论。正式发布门禁使用：

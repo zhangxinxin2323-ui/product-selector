@@ -9,6 +9,7 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -198,6 +199,34 @@ def run_tests() -> dict[str, Any]:
     }
 
 
+def run_sample_replay() -> dict[str, Any]:
+    with tempfile.TemporaryDirectory() as temp:
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "scripts" / "replay_sample_run.py"),
+                "--output-dir",
+                temp,
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        try:
+            payload = json.loads(completed.stdout)
+        except json.JSONDecodeError:
+            payload = {}
+        return {
+            "passed": completed.returncode == 0 and payload.get("valid") is True,
+            "returncode": completed.returncode,
+            "errors": payload.get("errors", [completed.stderr[-500:]]),
+            "actual": payload.get("actual"),
+        }
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run product-selector eval gates")
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
@@ -220,6 +249,10 @@ def main() -> int:
         if not result["tests"]["passed"]:
             result["valid"] = False
             result["errors"].append("Deterministic test suite failed.")
+        result["sample_replay"] = run_sample_replay()
+        if not result["sample_replay"]["passed"]:
+            result["valid"] = False
+            result["errors"].append("Golden sample replay failed.")
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result["valid"] else 1
 

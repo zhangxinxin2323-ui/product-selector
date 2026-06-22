@@ -18,6 +18,7 @@ import report_lint
 import score_go_nogo
 import build_review_bundle
 import build_monitor_payload
+import build_pivot_table
 import validate_config
 import run_evals
 
@@ -91,6 +92,80 @@ class AttributeTaggerTests(unittest.TestCase):
         draft = json.loads((output / "dimension-draft.json").read_text(encoding="utf-8"))
         self.assertEqual(draft["status"], "draft")
 
+
+class PivotPipelineTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.input_path = FIXTURES / "sample-electronics-category.json"
+        self.dimensions_path = ROOT / "references" / "dimensions" / "electronics.json"
+        self.golden_path = FIXTURES / "sample-electronics-tagged.json"
+
+    def test_explicit_price_units_do_not_guess_from_value(self) -> None:
+        payload = {
+            "Data": {
+                "Products": [
+                    {"Asin": "USD129", "Title": "USB-C Charger", "Price": 129}
+                ]
+            }
+        }
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp) / "source.json"
+            source.write_text(json.dumps(payload), encoding="utf-8")
+            usd = build_pivot_table.extract_products(source, "usd")
+            cents = build_pivot_table.extract_products(source, "cents")
+        self.assertEqual(usd[0]["price"], 129.0)
+        self.assertEqual(cents[0]["price"], 1.29)
+
+    def test_golden_tagging_is_valid(self) -> None:
+        products = build_pivot_table.extract_products(self.input_path, "cents")
+        tagged = build_pivot_table.normalized_tag_rows(
+            build_pivot_table.read_json(self.golden_path)
+        )
+        _, allowed = build_pivot_table.dimension_contract(self.dimensions_path)
+        result = build_pivot_table.validate_tagging(products, tagged, allowed, 0.65)
+        self.assertTrue(result["valid"], result["errors"])
+        self.assertEqual(result["unknown_ratios"]["protocol"], 0.625)
+
+    def test_missing_and_invalid_tags_fail(self) -> None:
+        products = build_pivot_table.extract_products(self.input_path, "cents")
+        tagged = build_pivot_table.normalized_tag_rows(
+            build_pivot_table.read_json(self.golden_path)
+        )[:-1]
+        tagged[0] = dict(tagged[0], connector="not-an-allowed-value")
+        _, allowed = build_pivot_table.dimension_contract(self.dimensions_path)
+        result = build_pivot_table.validate_tagging(products, tagged, allowed, 0.65)
+        self.assertFalse(result["valid"])
+        self.assertTrue(any("Missing tagged ASINs" in item for item in result["errors"]))
+        self.assertTrue(any("Invalid dimension values" in item for item in result["errors"]))
+
+    def test_cli_writes_complete_pivot_bundle(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / "pivot.csv"
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPTS / "build_pivot_table.py"),
+                    "--input",
+                    str(self.input_path),
+                    "--dimensions-file",
+                    str(self.dimensions_path),
+                    "--tagged-json",
+                    str(self.golden_path),
+                    "--price-unit",
+                    "cents",
+                    "--output",
+                    str(output),
+                ],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                check=False,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+            self.assertTrue(output.is_file())
+            self.assertTrue((output.parent / "tagged-products.json").is_file())
+            self.assertTrue((output.parent / "tagging-validation.json").is_file())
+            rows = output.read_text(encoding="utf-8-sig").splitlines()
+            self.assertEqual(len(rows), 9)
 
 class FinanceTests(unittest.TestCase):
     def run_finance(self, *arguments: str) -> dict:
@@ -338,7 +413,7 @@ class WrapperAndReportTests(unittest.TestCase):
         )
         self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
         result = json.loads(completed.stdout)
-        self.assertEqual(result["fixture_counts"]["synthetic"], 5)
+        self.assertEqual(result["fixture_counts"]["synthetic"], 7)
         self.assertEqual(result["fixture_counts"]["sorftime-live"], 0)
         self.assertFalse(result["live_gate"]["complete"])
 

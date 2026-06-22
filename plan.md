@@ -1,5 +1,21 @@
 # 任务契约：Product Selector 全面优化
 
+## 0. 当前发布任务（2026-06-22）
+
+目标：发布 `v1.1.0` 团队稳定版，同时保留 `v1.0.0` 回滚基线。
+
+本轮必须完成：
+
+- [x] 修复 pivot CSV 无输出和价格单位猜测问题。
+- [x] 增加版本化属性标注 schema、严格校验和 golden fixture。
+- [x] 将 eval 从“清单校验”升级为可执行的完整 sample run。
+- [x] 修正飞书质量门禁的假通过。
+- [x] 精简 `SKILL.md`，让 description 明确输入、输出、工具、触发、处理和边界。
+- [x] 全套测试、Skill validation 和 sample replay 通过。
+- [ ] 推送新分支和 `v1.1.0` 标签；旧版可通过 `v1.0.0` 恢复。
+
+发布边界：不调用付费 Sorftime API，不写正式飞书数据，不删除历史报告。
+
 ## 1. 目标
 
 结合现有评估和用户提供的十项方案，将 product-selector 重构为可跨品类、可跨运行时、可验证、默认安全且支持后续扩展的 Amazon 选品 Skill。
@@ -55,6 +71,7 @@
 
 | 时间 | 完成事项 | 验证证据 | 待决问题 |
 |---|---|---|---|
+| 2026-06-22 | 完成 v1.1.0 稳定性修复、严格标注门禁、黄金 replay、Skill 主流程精简 | 40 tests；6 eval；sample replay；dry-run gate 全通过；live 无回读证据按预期失败 | 真实 Sorftime fixture 仍为 0/2，不在未授权情况下消耗积分 |
 | 2026-06-18 | 完成仓库与 Skill Creator 规范盘点 | 已读取全部现有核心文件和模板 | 尚未运行真实 Sorftime / 飞书链路 |
 | 2026-06-18 | 完成主 Skill、配置、adapter、双层决策与扩展工作流重构 | `SKILL.md` 193 行；25 个本地引用全部存在；无旧 token/table_id 残留 | 真实飞书 adapter 尚未执行 mutation |
 | 2026-06-18 | 完成属性、财务、评分、预算重试、VOC bundle、监控 payload、报告和配置脚本 | `python scripts/run_evals.py`：28/28 通过；含 Code 99 真重试、Code 4 不重试、预算硬阻断、合成全链路 | 真实 Sorftime 全链路需用户授权积分消耗 |

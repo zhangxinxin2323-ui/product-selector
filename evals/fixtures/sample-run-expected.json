@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "pivot": {
+    "rows": 8,
+    "first_asin": "TEST000001",
+    "first_price": 19.99
+  },
+  "finance": {
+    "financial_decision": "CONDITIONAL GO",
+    "launch_feasibility": "GO",
+    "base_payback_month": 8,
+    "pessimistic_payback_month": 11,
+    "unit_profit": 6.901925
+  }
+}

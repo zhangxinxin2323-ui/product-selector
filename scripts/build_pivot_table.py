@@ -1,257 +1,372 @@
 #!/usr/bin/env python3
-"""
-build_pivot_table.py — Attribute tagging + pivot-ready CSV generation.
-Splits the work: script handles data extraction & validation, Claude handles LLM tagging.
+"""Build a validated, pivot-ready CSV from Sorftime category data.
 
-Usage:
-  python scripts/build_pivot_table.py --input top100.json --output pivot.csv [--prompt-only]
-
-Step 1: Extract 100 ASINs + base fields from CategoryRequest JSON
-Step 2: Output a prompt file for Claude to perform attribute discovery + tagging
-Step 3: Read Claude's tagged JSON, validate 100/100 coverage
-Step 4: Output CSV with all fields
+Confirmed dimension files produce deterministic tags. Agent-produced tags are
+accepted only when they pass the same versioned dimension contract.
 """
+
 from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
+import importlib.util
 import json
-import os
 import sys
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
-# Base fields always extracted from CategoryRequest
-BASE_FIELDS = [
-    ("ASIN", "asin", "str"),
-    ("品牌", "brand", "str"),
-    ("标题", "title", "str"),
-    ("售价($)", "price", "float"),
-    ("月销量", "sales", "int"),
-    ("评论数", "reviews", "int"),
-    ("评分", "rating", "float"),
-    ("上架天数", "days", "int"),
-    ("FBA", "is_fba", "bool"),
+
+SCHEMA_VERSION = 1
+UNKNOWN_VALUES = {"", "unknown", "other", None}
+BASE_COLUMNS = [
+    ("ASIN", "asin"),
+    ("品牌", "brand"),
+    ("标题", "title"),
+    ("售价($)", "price"),
+    ("月销量", "sales"),
+    ("评论数", "ratings_count"),
+    ("评分", "rating"),
+    ("上架天数", "online_days"),
+    ("FBA", "is_fba"),
 ]
 
-MAX_TITLES_PER_PROMPT = 100
+
+def load_attribute_engine():
+    path = Path(__file__).with_name("attribute-tagger.py")
+    spec = importlib.util.spec_from_file_location("product_selector_attribute_tagger", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Cannot load attribute engine: {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
-def extract_products(input_path: Path) -> list[dict]:
-    """Extract product data from CategoryRequest JSON (handles CLI prefix)."""
-    raw = input_path.read_text(encoding="utf-8", errors="replace")
-    start = raw.find("{")
-    if start == -1:
-        raise ValueError("No JSON found in input file")
-    data = json.loads(raw[start:])
-    products = data.get("Data", {}).get("Products", [])
-    if not products:
-        raise ValueError("No Products found in JSON")
-
-    result = []
-    for p in products:
-        t = (p.get("Title") or "").strip()
-        if not t:
-            continue
-        pr = p.get("Price") or 0
-        if isinstance(pr, (int, float)) and pr > 100:
-            pr = pr / 100  # cents → dollars
-        row = {
-            "asin": (p.get("Asin") or "").strip(),
-            "brand": (p.get("Brand") or "").strip(),
-            "title": t,
-            "price": round(pr, 2),
-            "sales": p.get("SalesVolumeOfMonth") or 0,
-            "reviews": p.get("RatingsCount") or 0,
-            "rating": p.get("Ratings") or 0,
-            "days": p.get("OnlineDays") or 0,
-            "is_fba": bool(p.get("IsFBA")),
-        }
-        result.append(row)
-    return result
+ATTRIBUTE_ENGINE = load_attribute_engine()
 
 
-def generate_prompt(products: list[dict], output_path: Path, step: str = "discover", dimensions: list | None = None) -> Path:
-    """Generate a prompt file for LLM attribute discovery OR tagging.
+def read_json(path: Path) -> Any:
+    raw = path.read_text(encoding="utf-8-sig", errors="strict")
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        for index, char in enumerate(raw):
+            if char not in "[{":
+                continue
+            try:
+                return json.loads(raw[index:])
+            except json.JSONDecodeError:
+                continue
+        raise ValueError(f"No valid JSON found in {path}")
 
-    step='discover': Claude outputs dimension definitions only (5-8 dims)
-    step='tag': Claude tags all products using confirmed dimensions
-    """
-    prompt_path = output_path.with_suffix(
-        ".dimensions.prompt.txt" if step == "discover" else ".tagging.prompt.txt"
+
+def write_json(path: Path, payload: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
     )
-    lines = []
 
-    if step == "discover":
-        lines.append("# Step 1: Discover Purchase-Decision Attribute Dimensions\n")
-        lines.append(f"Read {len(products)} product titles below.\n")
-        lines.append("Extract 5-8 dimensions consumers use to compare these products.\n")
-        lines.append("For each dimension output: name, label(中文), description(1句), 3-6 example values.\n")
-        lines.append("Focus on dimensions that differentiate products — not generic descriptors.\n")
-        lines.append("\nDO NOT tag individual products yet. Only output dimension definitions.\n")
+
+def extract_products(input_path: Path, price_unit: str) -> list[dict[str, Any]]:
+    payload = read_json(input_path)
+    records = ATTRIBUTE_ENGINE.find_products(payload)
+    if not records:
+        raise ValueError(f"No product list found in {input_path}")
+    products = ATTRIBUTE_ENGINE.normalize_products(records, price_unit)
+    asins = [item["asin"] for item in products]
+    if not all(asins):
+        raise ValueError("Every product must have an ASIN")
+    duplicates = sorted(asin for asin, count in Counter(asins).items() if count > 1)
+    if duplicates:
+        raise ValueError(f"Duplicate ASINs in source: {duplicates[:5]}")
+    return products
+
+
+def dimension_contract(path: Path) -> tuple[dict[str, Any], dict[str, set[str]]]:
+    payload = read_json(path)
+    if payload.get("schema_version") != SCHEMA_VERSION:
+        raise ValueError(f"Unsupported dimension schema_version in {path}")
+    if payload.get("status") != "confirmed":
+        raise ValueError("Final tagging requires a confirmed dimension file")
+    rules, _ = ATTRIBUTE_ENGINE.load_dimension_file(path)
+    allowed = {
+        name: {rule.value for rule in dimension_rules} | {"unknown"}
+        for name, dimension_rules in rules.items()
+    }
+    return payload, allowed
+
+
+def normalized_tag_rows(payload: Any) -> list[dict[str, Any]]:
+    if isinstance(payload, dict):
+        if payload.get("schema_version") not in (None, SCHEMA_VERSION):
+            raise ValueError("Unsupported tagged payload schema_version")
+        payload = payload.get("products", payload.get("data", []))
+    if not isinstance(payload, list):
+        raise ValueError("Tagged payload must contain a products array")
+    if not all(isinstance(item, dict) for item in payload):
+        raise ValueError("Every tagged product must be an object")
+    return payload
+
+
+def validate_tagging(
+    products: list[dict[str, Any]],
+    tagged: list[dict[str, Any]],
+    allowed: dict[str, set[str]],
+    max_unknown_ratio: float,
+) -> dict[str, Any]:
+    errors: list[str] = []
+    warnings: list[str] = []
+    expected = [item["asin"] for item in products]
+    actual = [str(item.get("asin") or "") for item in tagged]
+    counts = Counter(actual)
+
+    duplicates = sorted(asin for asin, count in counts.items() if asin and count > 1)
+    missing = sorted(set(expected) - set(actual))
+    extras = sorted(set(actual) - set(expected) - {""})
+    if "" in actual:
+        errors.append("Every tagged product must have an ASIN")
+    if duplicates:
+        errors.append(f"Duplicate tagged ASINs: {duplicates[:5]}")
+    if missing:
+        errors.append(f"Missing tagged ASINs: {missing[:5]}")
+    if extras:
+        errors.append(f"Unexpected tagged ASINs: {extras[:5]}")
+
+    invalid_values: list[dict[str, str]] = []
+    unknown_counts = {dimension: 0 for dimension in allowed}
+    for item in tagged:
+        asin = str(item.get("asin") or "")
+        for dimension, values in allowed.items():
+            if dimension not in item:
+                errors.append(f"{asin or '<missing>'} lacks dimension {dimension}")
+                continue
+            value = item.get(dimension)
+            if value in UNKNOWN_VALUES:
+                unknown_counts[dimension] += 1
+                continue
+            if not isinstance(value, str) or value not in values:
+                invalid_values.append(
+                    {"asin": asin, "dimension": dimension, "value": str(value)}
+                )
+    if invalid_values:
+        errors.append(f"Invalid dimension values: {invalid_values[:5]}")
+
+    total = max(1, len(products))
+    unknown_ratios = {
+        dimension: round(count / total, 3)
+        for dimension, count in unknown_counts.items()
+    }
+    excessive = {
+        dimension: ratio
+        for dimension, ratio in unknown_ratios.items()
+        if ratio > max_unknown_ratio
+    }
+    if excessive:
+        errors.append(
+            f"Unknown ratio exceeds {max_unknown_ratio:.0%}: {excessive}"
+        )
+    elif any(unknown_ratios.values()):
+        warnings.append(f"Unknown values remain: {unknown_ratios}")
+
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "valid": not errors,
+        "source_products": len(products),
+        "tagged_products": len(tagged),
+        "dimensions": sorted(allowed),
+        "unknown_ratios": unknown_ratios,
+        "errors": errors,
+        "warnings": warnings,
+    }
+
+
+def merge_tags(
+    products: list[dict[str, Any]], tagged: list[dict[str, Any]], dimensions: list[str]
+) -> list[dict[str, Any]]:
+    tags = {str(item["asin"]): item for item in tagged}
+    merged: list[dict[str, Any]] = []
+    for product in products:
+        row = dict(product)
+        for dimension in dimensions:
+            row[dimension] = tags[product["asin"]].get(dimension, "unknown")
+        merged.append(row)
+    return merged
+
+
+def write_pivot_csv(
+    products: list[dict[str, Any]], dimensions: list[str], output_path: Path
+) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", newline="", encoding="utf-8-sig") as handle:
+        writer = csv.writer(handle)
+        writer.writerow([label for label, _ in BASE_COLUMNS] + dimensions)
+        for product in products:
+            writer.writerow(
+                [product.get(field, "") for _, field in BASE_COLUMNS]
+                + [product.get(dimension, "unknown") for dimension in dimensions]
+            )
+
+
+def write_enrichment_queue(
+    products: list[dict[str, Any]], dimensions: list[str], output_path: Path
+) -> None:
+    queue = []
+    for product in products:
+        unknown = [
+            dimension
+            for dimension in dimensions
+            if product.get(dimension) in UNKNOWN_VALUES
+        ]
+        if unknown:
+            queue.append(
+                {
+                    "asin": product["asin"],
+                    "title": product["title"],
+                    "unknown_dimensions": unknown,
+                }
+            )
+    write_json(
+        output_path,
+        {"schema_version": SCHEMA_VERSION, "products": queue},
+    )
+
+
+def generate_prompt(
+    products: list[dict[str, Any]], dimensions_path: Path | None, output_path: Path
+) -> None:
+    source_hash = hashlib.sha256(
+        json.dumps(products, ensure_ascii=False, sort_keys=True).encode("utf-8")
+    ).hexdigest()
+    lines = [
+        "# Product Selector attribute task",
+        "",
+        f"schema_version: {SCHEMA_VERSION}",
+        f"source_sha256: {source_hash}",
+        f"product_count: {len(products)}",
+        "",
+    ]
+    if dimensions_path:
+        contract, allowed = dimension_contract(dimensions_path)
+        lines.extend(
+            [
+                "Use the confirmed dimensions exactly as written. Do not add or rename dimensions.",
+                json.dumps(
+                    {
+                        "dimension_set": contract.get("name"),
+                        "allowed_values": {
+                            key: sorted(values) for key, values in allowed.items()
+                        },
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+            ]
+        )
     else:
-        lines.append("# Step 2: Tag All Products with Confirmed Dimensions\n")
-        lines.append("Using the confirmed dimensions below, tag every product.\n")
-        lines.append("For each ASIN, fill in all dimension values from the title.\n")
-        lines.append("Use 'unknown' when the title doesn't reveal a dimension.\n")
-        if dimensions:
-            lines.append("\n## Confirmed Dimensions (DO NOT modify)\n")
-            for d in dimensions:
-                lines.append(f"  - {d.get('name','?')} ({d.get('label','?')}): {d.get('description','?')}")
-                lines.append(f"    Allowed values: {', '.join(d.get('examples',[]))}\n")
-        lines.append(f"\nTotal products to tag: {len(products)}\n")
-
-    lines.append(f"\n## Product Titles (first {MAX_TITLES_PER_PROMPT})\n")
-    for i, p in enumerate(products[:MAX_TITLES_PER_PROMPT]):
-        lines.append(f"{i+1:3d}. [{p['brand']}] ${p['price']:.0f} | {p['title'][:120]}")
-    lines.append(f"\n## Output Format\n")
-    lines.append("```json")
-    if step == "discover":
-        lines.append('{')
-        lines.append('  "dimensions": [')
-        lines.append('    {"name": "...", "label": "...", "description": "...", "examples": ["..."]}')
-        lines.append('  ]')
-        lines.append('}')
-    else:
-        lines.append('{')
-        lines.append('  "products": [')
-        lines.append('    {"asin": "B0X", "dim1_value": "...", "dim2_value": "..."}')
-        lines.append('  ]')
-        lines.append('}')
-    lines.append("```")
-    lines.append("\nOnly output the JSON. No other text.")
-
-    prompt_path.write_text("\n".join(lines), encoding="utf-8")
-    return prompt_path
+        lines.extend(
+            [
+                "Discover 5-8 purchase-decision dimensions.",
+                "The output is a draft and is not decision-eligible until confirmed.",
+            ]
+        )
+    lines.extend(
+        [
+            "",
+            "Products:",
+            json.dumps(
+                [
+                    {"asin": item["asin"], "title": item["title"]}
+                    for item in products
+                ],
+                ensure_ascii=False,
+                indent=2,
+            ),
+            "",
+            "Return JSON only.",
+        ]
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def validate_tagging(products: list[dict], tagged: list[dict]) -> dict:
-    """Validate that all 100 ASINs are tagged."""
-    result = {"total": len(products), "tagged": len(tagged), "missing": [], "unknown_counts": {}}
-    tagged_asins = {t["asin"] for t in tagged}
-    for p in products:
-        if p["asin"] not in tagged_asins:
-            result["missing"].append(p["asin"])
-
-    # Count unknown values per dimension
-    if tagged:
-        dims = [k for k in tagged[0] if k != "asin"]
-        for d in dims:
-            unknown = sum(1 for t in tagged if t.get(d, "") in ("", "unknown", "other"))
-            result["unknown_counts"][d] = unknown
-
-    return result
-
-
-def merge_and_write_csv(products: list[dict], tagged: list[dict], output_path: Path) -> None:
-    """Merge base fields + tagged attributes → pivot-ready CSV."""
-    tagged_map = {t["asin"]: t for t in tagged}
-
-    # Discover attribute columns from tagged data
-    attr_cols = []
-    if tagged:
-        attr_cols = [k for k in tagged[0] if k != "asin"]
-
-def generate_enrich_list(products: list[dict], tagged: list[dict], unknown_threshold: int = 2) -> Path | None:
-    """Find ASINs with too many unknown attributes that need ProductRequest enrichment."""
-    tagged_map = {t["asin"]: t for t in tagged}
-    attr_cols = [k for k in tagged[0] if k != "asin"] if tagged else []
-
-    needs_enrichment = []
-    for p in products:
-        tag = tagged_map.get(p["asin"], {})
-        unknown_count = sum(1 for ac in attr_cols if tag.get(ac, "") in ("", "unknown", "other"))
-        if unknown_count >= unknown_threshold:
-            needs_enrichment.append({
-                "asin": p["asin"],
-                "title": p["title"],
-                "unknown_attrs": unknown_count,
-                "total_attrs": len(attr_cols),
-            })
-
-    if needs_enrichment:
-        output_path = Path("enrich_asins.json")
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(needs_enrichment, f, indent=2, ensure_ascii=False)
-        print(f"⚠️  {len(needs_enrichment)} ASINs need ProductRequest enrichment → {output_path}")
-        print(f"   Run: ProductRequest for each ASIN, extract Description/bullets, re-tag unknown attrs")
-        return output_path
-    return None
-    base_names = [b[1] for b in BASE_FIELDS[:1]] + [b[0] for b in BASE_FIELDS[1:]]
-    # Use Chinese labels for base fields
-    base_labels = [b[0] for b in BASE_FIELDS]
-    all_cols = base_labels + attr_cols
-
-    with open(output_path, "w", newline="", encoding="utf-8-sig") as f:
-        writer = csv.writer(f)
-        writer.writerow(all_cols)
-
-        for p in products:
-            row = [p.get(b[1], "") for b in BASE_FIELDS]
-            tag = tagged_map.get(p["asin"], {})
-            for ac in attr_cols:
-                row.append(tag.get(ac, "unknown"))
-            writer.writerow(row)
-
-    print(f"CSV written: {output_path} ({len(products)} rows, {len(all_cols)} columns)")
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--input", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--price-unit", choices=("usd", "cents"), required=True,
+        help="Explicit Sorftime price unit; value-based guessing is forbidden.",
+    )
+    parser.add_argument("--dimensions-file", type=Path)
+    parser.add_argument("--tagged-json", type=Path)
+    parser.add_argument("--prompt-only", action="store_true")
+    parser.add_argument("--max-unknown-ratio", type=float, default=0.65)
+    return parser.parse_args()
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Build pivot-ready CSV from Top100 + LLM tagging")
-    parser.add_argument("--input", type=Path, required=True, help="CategoryRequest JSON")
-    parser.add_argument("--output", type=Path, required=True, help="Output CSV path")
-    parser.add_argument("--step", choices=("discover", "tag"), default="discover",
-                       help="discover: output dimension definitions | tag: tag products with confirmed dims")
-    parser.add_argument("--tagged-json", type=Path, help="Claude's tagged JSON (if already run)")
-    parser.add_argument("--dimensions-json", type=Path, help="Confirmed dimensions JSON (for tag step)")
-    parser.add_argument("--prompt-only", action="store_true", help="Only generate prompt file, don't build CSV")
-    args = parser.parse_args()
-
-    products = extract_products(args.input)
-    print(f"Extracted {len(products)} products from {args.input}")
+    args = parse_args()
+    if not 0 <= args.max_unknown_ratio <= 1:
+        raise ValueError("max-unknown-ratio must be between 0 and 1")
+    products = extract_products(args.input, args.price_unit)
 
     if args.prompt_only:
-        dims = None
-        if args.step == "tag" and args.dimensions_json:
-            dims_data = json.loads(args.dimensions_json.read_text(encoding="utf-8"))
-            dims = dims_data if isinstance(dims_data, list) else dims_data.get("dimensions", [])
-        prompt_path = generate_prompt(products, args.output, step=args.step, dimensions=dims)
-        print(f"Prompt written: {prompt_path}")
-        print(f"\nNext: Claude reads this, outputs JSON.")
-        if args.step == "discover":
-            print(f"  Then: User confirms dimensions → re-run: --step tag --dimensions-json <dims.json> --prompt-only")
-        else:
-            print(f"  Then: re-run: --tagged-json <claude_output.json> to build CSV")
+        generate_prompt(products, args.dimensions_file, args.output)
+        print(json.dumps({"prompt": str(args.output), "products": len(products)}))
         return 0
+    if not args.dimensions_file:
+        raise ValueError("--dimensions-file is required for final pivot output")
 
+    dimension_meta, allowed = dimension_contract(args.dimensions_file)
+    rules, _ = ATTRIBUTE_ENGINE.load_dimension_file(args.dimensions_file)
     if args.tagged_json:
-        tagged = json.loads(args.tagged_json.read_text(encoding="utf-8"))
-        if isinstance(tagged, dict):
-            tagged = tagged.get("products", tagged.get("data", []))
+        tagged = normalized_tag_rows(read_json(args.tagged_json))
+        tagging_source = "agent"
+    else:
+        tagged, _, _ = ATTRIBUTE_ENGINE.tag_products(products, rules)
+        tagging_source = "deterministic_rules"
 
-        validation = validate_tagging(products, tagged)
-        print(f"Tagged: {validation['tagged']}/{validation['total']}")
-        if validation["missing"]:
-            print(f"Missing ASINs: {validation['missing'][:5]}...")
-        for dim, count in validation["unknown_counts"].items():
-            pct = count / max(validation["total"], 1) * 100
-            print(f"  {dim}: {count} unknown ({pct:.0f}%)")
+    validation = validate_tagging(
+        products, tagged, allowed, args.max_unknown_ratio
+    )
+    validation["tagging_source"] = tagging_source
+    validation["dimension_set"] = dimension_meta.get("name")
+    validation_path = args.output.with_name("tagging-validation.json")
+    write_json(validation_path, validation)
+    if not validation["valid"]:
+        print(json.dumps(validation, ensure_ascii=False, indent=2))
+        return 2
 
-        # Phase 2 check: find ASINs needing ProductRequest enrichment
-        enrich_file = generate_enrich_list(products, tagged)
-        if enrich_file:
-            print("→ Next: run ProductRequest for enrichment ASINs, then re-tag with descriptions")
-            print("  sorftime api ProductRequest '{\"asin\":\"<asin1>,<asin2>,...,<asin10>\"}' --domain 1")
-            print("  Max 10 ASINs per call. Prioritize ASINs with most unknown attrs.")
-
-        merge_and_write_csv(products, tagged, args.output)
-        return 0
-
-    # No tagged JSON yet → generate prompt
-    prompt_path = generate_prompt(products, args.output)
-    print(f"No tagged JSON provided. Prompt generated: {prompt_path}")
-    print("Claude should read this file, perform attribute discovery + tagging,")
-    print(f"save the JSON output, then re-run: python {__file__} --input {args.input} --output {args.output} --tagged-json <json>")
+    dimensions = list(allowed)
+    merged = merge_tags(products, tagged, dimensions)
+    write_json(
+        args.output.with_name("tagged-products.json"),
+        {
+            "schema_version": SCHEMA_VERSION,
+            "dimension_set": dimension_meta.get("name"),
+            "tagging_source": tagging_source,
+            "products": merged,
+        },
+    )
+    write_pivot_csv(merged, dimensions, args.output)
+    write_enrichment_queue(
+        merged, dimensions, args.output.with_name("enrich-asins.json")
+    )
+    print(
+        json.dumps(
+            {
+                "valid": True,
+                "products": len(merged),
+                "dimensions": dimensions,
+                "pivot": str(args.output),
+                "validation": str(validation_path),
+            },
+            ensure_ascii=False,
+        )
+    )
     return 0
 
 
