@@ -36,11 +36,9 @@ evidence synthesis, VOC interpretation, and recommendations.
    `Overall Decision` separate.
 5. Never substitute Sorftime `SearchConversionRate` for advertising click CVR.
 6. Require an explicit price unit (`cents` or `usd`) for CategoryRequest data.
-7. Use confirmed dimension schemas for final tagging. Draft dimensions are not
-   decision-eligible.
-8. Treat zero-supply cells as observations, not opportunities, until independent
+7. Treat zero-supply cells as observations, not opportunities, until independent
    demand evidence exists.
-9. Treat patent, compliance, product safety, and supply chain as hard gates.
+8. Treat patent, compliance, product safety, and supply chain as hard gates.
 
 Read [operating-rules.md](references/operating-rules.md) before financial analysis
 or live persistence. It contains the fixed business thresholds and missing-data
@@ -107,36 +105,32 @@ trend/review evidence. Record every missing source and its decision impact.
 
 ### 2. Build Validated Attributes
 
-**Input:** CategoryRequest JSON, explicit price unit, and a confirmed dimension
-file from `references/dimensions/`.
+**Input:** CategoryRequest JSON and explicit price unit (`cents` or `usd`).
 
-**Action:** Prefer deterministic rules:
+**Action:** AI-powered attribute discovery — every category, every time.
 
 ```powershell
+# Step 2a: Generate tagging prompt from 100 product titles
 python scripts/build_pivot_table.py --input <category.json> `
-  --dimensions-file <confirmed-dimensions.json> --price-unit cents `
-  --output <run-dir>/pivot.csv
+  --price-unit cents --prompt-only `
+  --output <run-dir>/tagging.prompt.txt
 ```
 
-If agent tagging is needed, first generate a bounded prompt, then validate the
-returned JSON against the confirmed schema:
+Read the prompt. Discover 5-8 purchase-decision dimensions from the titles.
+Output tagged JSON. Then validate:
 
 ```powershell
-python scripts/build_pivot_table.py --input <category.json> `
-  --dimensions-file <confirmed-dimensions.json> --price-unit cents `
-  --prompt-only --output <run-dir>/tagging.prompt.txt
-
+# Step 2b: Validate — all 100 products tagged, unknown ratio ≤ 65%
 python scripts/check_tagging.py --input <category.json> `
-  --tagged-json <tagged.json> --dimensions-file <confirmed-dimensions.json> `
-  --price-unit cents
+  --tagged-json <tagged.json> --price-unit cents
 ```
 
-**Output:** `pivot.csv`, `tagged-products.json`, `tagging-validation.json`, and
-`enrich-asins.json`. Any missing ASIN, duplicate ASIN, invalid enum, or excessive
-unknown ratio blocks the final pivot.
+**Output:** `pivot.csv`, `tagged-products.json`, `tagging-validation.json`.
+Any missing ASIN, duplicate ASIN, or excessive unknown ratio (default >65%)
+blocks the final pivot.
 
-For an unknown category, run `attribute-tagger.py` without a dimension file to
-create `dimension-draft.json`; require confirmation before rerunning this step.
+No pre-built dimension files are needed or expected. AI discovers dimensions
+from the actual product titles in front of it, every time.
 
 ### 3. Decide Market Viability
 
