@@ -122,4 +122,4 @@ python scripts/build_finance_payload.py \
   --output <run-dir>/runtime/finance-payload.json
 ```
 
-payload 默认 `write_mode: dry-run`。live 前读取 finance 表字段和格式，只写源字段，不写公式/查找字段。按分析键搜索：一条 update、零条 create、多条停止；写后回读模型版本、输入哈希、Financial Decision、Launch Feasibility、峰值资金和回本月。
+写入前读取 finance 表字段和格式，只写源字段，不写公式/查找字段。按分析键搜索：一条 update、零条 create、多条停止；写后回读模型版本、输入哈希、Financial Decision、Launch Feasibility、峰值资金和回本月。

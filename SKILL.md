@@ -2,13 +2,14 @@
 name: product-selector
 description: >
   Analyze Amazon product-selection viability from an ASIN, keyword, category
-  NodeId, product URL, or Feishu candidate queue. Use Sorftime CLI/MCP,
-  deterministic Python/Node scoring and finance tools, confirmed attribute
+  NodeId, product URL, or Feishu candidate queue. Use Sorftime CLI (mandatory)
+  for all data collection; MCP is fallback only when CLI returns no data.
+  Deterministic Python/Node scoring and finance tools, confirmed attribute
   schemas, and builtin Feishu Base. Batch-fetch evidence, classify Top100
   attributes, compare segments, analyze VOC, and separately decide Market GO,
   Financial GO, and Launch Feasibility. Output traceable raw JSON,
   evidence-index.json, pivot.csv, tagged-products.json, decision.json,
-  full-report.md, decision-card.html, and dry-run Feishu payloads. Use for Amazon
+  full-report.md, decision-card.html, and Feishu live payloads with readback. Use for Amazon
   product screening, niche or competitor research, sourcing-cost ceilings,
   product-development decisions, and batch candidate evaluation. Missing cost
   runs reverse finance; missing CPC or click CVR keeps Financial Decision
@@ -24,9 +25,11 @@ evidence synthesis, VOC interpretation, and recommendations.
 
 ## Non-Negotiable Gates
 
+0. **CLI-first data collection**. All Sorftime data MUST come from `sorftime.cmd api`
+   (ProductRequest, KeywordRequest, CategoryRequest, CategoryTrend, ProductReviewsQuery).
+   MCP tools are fallback ONLY when CLI returns empty/error — never the default.
 1. Use only Sorftime responses, user input, and explicitly labeled estimates.
-2. Default to `dry-run`. Never mutate Feishu, monitoring, or supplier data without
-   an explicit live-write request.
+2. All Feishu writes are live with search-before-create/upsert and verified readback.
 3. Estimate API points before calling. Stop when `execution.api_budget` would be
    exceeded. Unknown endpoint cost is blocking.
 4. Keep `Market Decision`, `Financial Decision`, `Launch Feasibility`, and
@@ -38,15 +41,32 @@ evidence synthesis, VOC interpretation, and recommendations.
 8. Treat zero-supply cells as observations, not opportunities, until independent
    demand evidence exists.
 9. Treat patent, compliance, product safety, and supply chain as hard gates.
-10. Live writes must use search-before-create/upsert and verified readback.
 
 Read [operating-rules.md](references/operating-rules.md) before financial analysis
 or live persistence. It contains the fixed business thresholds and missing-data
 rules.
 
+## Sorftime CLI Endpoints (mandatory)
+
+All data collection uses `sorftime.cmd api <Endpoint> '<json-params>'`.
+CLI returns English-keyed JSON (`ListingSalesVolumeOfMonth`, `SalesPrice`, etc.)
+that matches `attribute-tagger.py` FIELD_ALIASES exactly.
+
+| Endpoint | Cost | Use |
+|----------|:---:|------|
+| ProductRequest | 1 | Product detail: price, FBA, rank, sales, reviews |
+| KeywordRequest | 1 | Keyword detail: search volume, CPC, CVR, share |
+| KeywordExtends | 5 | Keyword extension words |
+| CategoryRequest | 5 | Category Top100 products + stats |
+| CategoryTrend | 5 | 25-month trend: sales, price, NPS, concentration |
+| ProductReviewsQuery | 5 | Product reviews (positive/negative/all) |
+| ASINKeywordRanking | 2 | ASIN keyword ranking positions |
+
+Full analysis budget: ~30 points. Always estimate before calling.
+
 ## Startup
 
-1. Read `config.local.json`; otherwise use `config.example.json` in dry-run mode.
+1. Read `config.local.json`; otherwise use `config.example.json`.
 2. Read [configuration.md](references/configuration.md) and run:
 
 ```powershell
@@ -69,7 +89,7 @@ python scripts/validate_config.py <config>
 | `batch` | Feishu candidate queue | Per item; max parallel 3 |
 
 Use `full` when the user does not specify a mode. For batch work, show item count,
-deduplicated analysis keys, point estimate, and dry-run plan before calls.
+deduplicated analysis keys, point estimate, and batch plan before calls.
 
 ## Stable Workflow
 
@@ -162,9 +182,25 @@ inputs produce `PENDING`/`needs_input`, never zero-filled calculations.
 
 **Input:** validated evidence, decisions, report content, and configured adapters.
 
-**Action:** Follow [bitable-schema.md](references/bitable-schema.md) for Feishu and
-[report-contract.md](references/report-contract.md) for the report. Load supplier,
-monitoring, or cross-market references only when requested.
+**Action:**
+
+| Step | Table | Write Condition | Content |
+|:---:|------|:---:|------|
+| 6a | 产品初选 (tbljJBWDxaLerJsN) | **Always** | ASIN, 产品名称, 类目, 核心关键词, 价格带, 推进状态=待分析 |
+| 6b | AI分析参考 (tblMeN1P5LvXsp2e) | **Always** | 29+ fields: struct + AI text + link back to candidate |
+| 6c | 产品初筛 (tblPhc8dHOelKPPF) | Overall GO/COND | 16-dimension assessment |
+| 6d | 财务分析 (tblllu3JJYrG5KGE) | Financial GO only | 48-field P&L from finance engine |
+| 6e | 产品开发 (tbl3dtXNC3Emy38k) | Overall GO/COND | Diff direction + product matrix |
+| 6f | 供应商管理 (tblu1Q70vnmsiBZ5) | Manual | User provides 1688 link |
+
+Capture candidate record_id, pass to all downstream tables,
+and read back each link field to verify resolution.
+
+Select field values MUST come from [operating-rules.md](references/operating-rules.md)
+deterministic mapping tables — never guess.
+Human-only fields (产品定位, 定位理由, 后验追踪) must be left empty.
+
+Generate `decision-card.html` and `full-report.md`. Run `report_lint.py`.
 
 **Output:**
 
@@ -195,11 +231,8 @@ python scripts/report_lint.py <run-dir>/full-report.md
 python scripts/check_report.py --run-dir <run-dir> `
   --overall-decision <decision> --financial-decision <decision>
 python scripts/check_all.py --asin <asin> --report-dir <run-dir> `
-  --overall <decision> --financial <decision> --write-mode dry-run
+  --overall <decision> --financial <decision> --feishu-verification <verification.json>
 ```
-
-For live writes, pass `--write-mode live --feishu-verification <json>`; the JSON
-must contain record IDs and `readback_verified: true` for every required table.
 
 Before release or after external API changes, also run:
 

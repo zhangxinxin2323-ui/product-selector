@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a dry-run-safe monitoring record from ProductRequest data."""
+"""Build a monitoring record from ProductRequest data."""
 
 from __future__ import annotations
 

@@ -515,13 +515,14 @@ class WrapperAndReportTests(unittest.TestCase):
         )
         self.assertEqual(first["counts"]["negative"], 1)
 
-    def test_example_config_is_safe_dry_run(self) -> None:
+    def test_example_config_is_live_and_rejects_placeholders(self) -> None:
         config = json.loads(
             (ROOT / "config.example.json").read_text(encoding="utf-8")
         )
         result = validate_config.validate(config)
-        self.assertTrue(result["valid"], result)
-        self.assertEqual(result["write_mode"], "dry-run")
+        self.assertEqual(result["write_mode"], "live")
+        # live mode requires real table IDs — example config has placeholders
+        self.assertIn("placeholder Feishu tables", str(result["errors"]))
 
     def test_live_config_rejects_placeholder_tables(self) -> None:
         config = json.loads(

@@ -18,19 +18,6 @@ Codex Desktop 场景优先通过网关 `/api/mcp/servers/enabled` 发现 `builti
 
 ## 写入协议
 
-### dry-run
-
-输出：
-
-- adapter
-- base 配置是否存在
-- 目标表配置键
-- 分析键
-- create/update 计划
-- 字段 payload
-
-不执行 mutation。
-
 ### live
 
 1. 读取表和字段，确认配置没有漂移。

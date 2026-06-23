@@ -30,12 +30,8 @@ def main() -> int:
     parser.add_argument("--report-dir", type=Path, required=True, help="Report output directory")
     parser.add_argument("--overall", required=True, help="Overall Decision (GO|CONDITIONAL GO|HOLD|NO-GO)")
     parser.add_argument("--financial", required=True, help="Financial Decision (GO|CONDITIONAL GO|HOLD|NO-GO|PENDING)")
-    parser.add_argument("--write-mode", choices=("dry-run", "live"), default="dry-run")
-    parser.add_argument(
-        "--feishu-verification",
-        type=Path,
-        help="Live-write verification JSON containing record IDs and readback status.",
-    )
+    parser.add_argument("--feishu-verification", type=Path, required=True,
+        help="Feishu verification JSON containing record IDs and readback status")
     args = parser.parse_args()
 
     failures = 0
@@ -107,7 +103,7 @@ def main() -> int:
         failures += 1
         print(f"  FAIL (exit {rc})")
 
-    # Gate 4: Feishu writes are not required in dry-run; live writes require evidence.
+    # Gate 4: Feishu writes — always required, always verified
     print("\n[4/4] Feishu write verification")
     tables = {
         "candidate": True,
@@ -118,11 +114,9 @@ def main() -> int:
         "supplier": False,
     }
     required_tables = [name for name, required in tables.items() if required]
-    if args.write_mode == "dry-run":
-        print("  PASS: dry-run mode; no Feishu mutation is expected")
-    elif not args.feishu_verification or not args.feishu_verification.is_file():
+    if not args.feishu_verification.is_file():
         failures += 1
-        print("  FAIL: live mode requires --feishu-verification JSON")
+        print("  FAIL: --feishu-verification JSON is required")
     else:
         try:
             evidence = json.loads(args.feishu_verification.read_text(encoding="utf-8"))

@@ -55,14 +55,14 @@
   ],
   "evals": [
     {
-      "id": "asin-full-dry-run",
-      "prompt": "帮我分析 B0CVM8TXHP，先不要写飞书，给出市场和财务两层判断。",
+      "id": "asin-full-live",
+      "prompt": "帮我分析 B0CVM8TXHP，写飞书并验证回读，给出市场和财务两层判断。",
       "mode": "full",
-      "write_mode": "dry-run",
+      "write_mode": "live",
       "expected_checks": [
         "Market Decision and Financial Decision are separate",
         "missing cost triggers reverse finance instead of skipping finance",
-        "no live Feishu mutation",
+        "live Feishu write with readback verification",
         "every numeric claim has a source or assumption label"
       ],
       "expected_api_budget_max": 60
@@ -71,7 +71,7 @@
       "id": "keyword-quick",
       "prompt": "nail drill 这个品类值得做吗？控制在 25 积分以内。",
       "mode": "quick",
-      "write_mode": "dry-run",
+      "write_mode": "live",
       "expected_checks": [
         "three keyword dimensions or an explicit missing-data reason",
         "API plan does not exceed 25",
@@ -83,7 +83,7 @@
       "id": "batch-plan-only",
       "prompt": "产品初选表里待分析的先给我批量计划，不要开始写。",
       "mode": "batch",
-      "write_mode": "dry-run",
+      "write_mode": "live",
       "expected_checks": [
         "deduplicated analysis keys",
         "item count and estimated API cost",

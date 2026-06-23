@@ -14,13 +14,13 @@ Amazon 选品决策 Skill。支持 ASIN、关键词、类目 NodeId 和飞书候
 - 属性标注使用外部品类维度库，不把家居规则写死在脚本中。
 - 未知品类生成 `dimension-draft.json`，确认后才用于正式判断。
 - 飞书优先使用 builtin Feishu / MCP，`lark-cli` 只作显式 fallback。
-- 默认 dry-run，正式写入使用 search-before-create/upsert 和回读验证。
+- 正式写入使用 search-before-create/upsert 和回读验证，默认 live。
 - 空白组合只表示零供给观察，不自动等于蓝海。
 
 ## 快速使用
 
 ```text
-帮我分析 B0F9JZSK2Q，先 dry-run，不要写飞书。
+帮我分析 B0F9JZSK2Q
 ```
 
 ```text
@@ -39,7 +39,7 @@ nail drill 值得做吗？控制在 25 积分以内。
 
 ```json
 {
-  "write_mode": "dry-run",
+  "write_mode": "live",
   "api_budget": 60,
   "output_dir": "./outputs"
 }
@@ -100,12 +100,12 @@ python scripts/finance.py forward \
   --cpc 0.80 --cvr 8
 ```
 
-### Sorftime dry-run
+### Sorftime API call (--dry-run for testing)
 
 ```bash
 python scripts/sorftime_call.py CategoryRequest \
   --payload-file evals/fixtures/category-request-payload.json \
-  --domain 1 --dry-run
+  --domain 1
 ```
 
 ### 报告校验

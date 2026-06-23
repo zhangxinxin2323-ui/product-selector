@@ -12,12 +12,12 @@
 
 ## 安全默认值
 
-- `execution.write_mode`: `dry-run`
+- `execution.write_mode`: `live`
 - `execution.api_budget`: `60`
 - `execution.max_parallel`: `3`
 - `integrations.*.enabled`: `false`
 
-若配置缺失，继续执行只读分析和本地输出，不得猜测正式表 ID。
+配置缺失时 `write_mode` 必须为 `live`，需校验飞书配置完整性和 base_token_env。
 
 ## 输出目录
 

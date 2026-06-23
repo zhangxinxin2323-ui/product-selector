@@ -2,7 +2,7 @@
 
 ## 安全边界
 
-默认 dry-run。只有以下条件全部满足才创建监控记录：
+只有以下条件全部满足才创建监控记录：
 
 - 综合决策为 GO。
 - `integrations.monitoring.enabled=true`。

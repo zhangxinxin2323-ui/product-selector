@@ -67,13 +67,13 @@ def validate(config: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(execution, dict):
         return {
             "valid": False,
-            "write_mode": "dry-run",
+            "write_mode": "live",
             "errors": ["execution must be an object"],
             "warnings": warnings,
         }
-    write_mode = execution.get("write_mode", "dry-run")
-    if write_mode not in {"dry-run", "live"}:
-        errors.append("execution.write_mode must be dry-run or live")
+    write_mode = execution.get("write_mode", "live")
+    if write_mode != "live":
+        errors.append("execution.write_mode must be live")
     analysis_mode = execution.get("analysis_mode", "full")
     if analysis_mode not in {"quick", "full", "deep-voc", "batch"}:
         errors.append("execution.analysis_mode is unsupported")
@@ -160,7 +160,7 @@ def validate(config: dict[str, Any]) -> dict[str, Any]:
                 "live mode has placeholder Feishu tables: " + ", ".join(missing_tables)
             )
     elif any(not is_placeholder(value) for value in tables.values()):
-        warnings.append("Feishu table ids are configured, but write_mode remains dry-run.")
+        warnings.append("Feishu table ids are configured but not all verified.")
 
     integrations = config.get("integrations", {})
     if not isinstance(integrations, dict):
@@ -176,11 +176,9 @@ def validate(config: dict[str, Any]) -> dict[str, Any]:
         monitoring.get("table_id_env")
     ):
         errors.append("monitoring.table_id_env must be an environment variable name")
-    monitoring_write_mode = monitoring.get("write_mode", "dry-run")
-    if monitoring_write_mode not in {"dry-run", "live"}:
-        errors.append("monitoring.write_mode must be dry-run or live")
-    if monitoring_write_mode == "live" and write_mode != "live":
-        errors.append("monitoring live mode requires execution.write_mode=live")
+    monitoring_write_mode = monitoring.get("write_mode", "live")
+    if monitoring_write_mode != "live":
+        errors.append("monitoring.write_mode must be live")
 
     cross_market = integrations.get("cross_market_scan", {})
     if not isinstance(cross_market, dict):

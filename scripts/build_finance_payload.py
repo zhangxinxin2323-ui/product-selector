@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Map bundled financial-model results to a dry-run Feishu finance upsert."""
+"""Map bundled financial-model results to a Feishu finance upsert payload."""
 
 from __future__ import annotations
 
@@ -134,7 +134,7 @@ def build(
     missing = [name for name in required if name not in fields]
     return {
         "schema_version": 1,
-        "write_mode": "dry-run",
+        "write_mode": "live",
         "operation": "upsert",
         "logical_table": "finance",
         "idempotency_key": f"{analysis_key}:finance",

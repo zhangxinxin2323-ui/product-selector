@@ -6,7 +6,7 @@
   },
   "execution": {
     "analysis_mode": "full",
-    "write_mode": "dry-run",
+    "write_mode": "live",
     "api_budget": 60,
     "max_parallel": 3,
     "output_dir": "./outputs"
@@ -45,7 +45,7 @@
     "monitoring": {
       "enabled": false,
       "table_id_env": "PRODUCT_MONITOR_TABLE_ID",
-      "write_mode": "dry-run"
+      "write_mode": "live"
     },
     "cross_market_scan": {
       "enabled": false,

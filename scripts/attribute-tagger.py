@@ -26,12 +26,12 @@ FIELD_ALIASES = {
     "title": ("Title", "title", "ProductTitle", "product_title"),
     "description": ("Description", "description", "Feature", "BulletPoints"),
     "brand": ("Brand", "brand"),
-    "price": ("Price", "price", "BuyBoxPrice"),
-    "sales": ("SalesVolumeOfMonth", "MonthlySales", "sales", "monthly_sales"),
-    "revenue": ("SalesAmountOfMonth", "MonthlyRevenue", "revenue"),
-    "ratings_count": ("RatingsCount", "ReviewCount", "ratings_count"),
-    "rating": ("Ratings", "Rating", "rating"),
-    "online_days": ("OnlineDays", "online_days"),
+    "price": ("Price", "price", "BuyBoxPrice", "SalesPrice"),
+    "sales": ("SalesVolumeOfMonth", "MonthlySales", "sales", "monthly_sales", "ListingSalesVolumeOfMonth"),
+    "revenue": ("SalesAmountOfMonth", "MonthlyRevenue", "revenue", "ListingSalesOfMonth"),
+    "ratings_count": ("RatingsCount", "ReviewCount", "ratings_count", "NumberofRatings"),
+    "rating": ("Ratings", "Rating", "rating", "Star"),
+    "online_days": ("OnlineDays", "online_days", "SellerLivedDays"),
     "is_fba": ("IsFBA", "is_fba"),
 }
 
